@@ -1,5 +1,4 @@
-import { site } from '../data/site.js'
-import { photoUrls } from '../data/stores.js'
+import { fullAddress, photoUrls } from '../data/stores.js'
 
 export default function StoreDetail({ store, onBack, onOpenPhoto }) {
   return (
@@ -20,7 +19,10 @@ export default function StoreDetail({ store, onBack, onOpenPhoto }) {
             {store.note && <span className="text-[#888]"> · {store.note}</span>}
           </dd>
           <dt className="text-[#888]">주소</dt>
-          <dd>{store.address ? `${site.addressPrefix} ${store.address}` : '미정'}</dd>
+          <dd>
+            {fullAddress(store) || '미정'}
+            {store.distanceNote && <span className="block text-[#888]">{store.distanceNote}</span>}
+          </dd>
           <dt className="text-[#888]">사진</dt>
           <dd className="tabular-nums">{store.photoCount}장</dd>
         </dl>
