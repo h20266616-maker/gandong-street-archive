@@ -6,14 +6,14 @@
 
 핸드폰으로 보는 게 기본이다. 카카오맵·네이버지도 앱처럼 **지도 전체 화면 + 아래 바텀시트**.
 
-- 지도: 카카오맵을 원래 색으로, 평면으로. 상점가는 흰 원 번호 핀, MT 장소는 검은 사각 `A/B/C`
-- 위쪽: `간척월명로` 바와 칩 `전체 · MT 장소 · 식당 · 카페·떡집 · 상점·기관`
+- 지도: 카카오맵을 원래 색으로, 평면으로. 상점가는 흰 원 번호 핀, MT 장소는 검은 사각 `A/B/C/D` (이름표는 다른 핀·버튼과 겹치지 않는 쪽에 붙는다)
+- 위쪽: `간척월명로` 바와 칩 `전체 · 상점가 · MT 장소` (세부 업종 분류는 두지 않는다)
 - 오른쪽 버튼: `3D`(지도를 기울이고 막대 핀으로, 두 손가락으로 회전) · `◎` 내 위치 · `+` · `−`
 - 바텀시트: peek 36% · half 52% · full 88%. 손잡이를 끌거나 탭한다
   - 목록: 상점가 → MT 장소 → 상점가 밖. 칩 필터를 따른다
   - 상세: `← 목록 · 길찾기(카카오맵 앱) · 사진 n장`, 가로로 넘기는 사진, 이전·다음 장소, 아래로 전체 사진
 - 사진을 누르면 검은 라이트박스 (스와이프, `닫기`)
-- 링크: `?shop=10`, `?shop=A`로 그 장소 상세가 바로 열린다 (단톡방 공유용). `?view=mt`는 MT 장소 칩
+- 링크: `?shop=10`, `?shop=A`로 그 장소 상세가 바로 열린다 (단톡방 공유용). `?view=shop` / `?view=mt`는 그 칩
 - 900px 이상에서는 바텀시트가 왼쪽 420px 패널이 된다
 - UI는 흑백, 사진은 원본 색. 누를 수 있는 것은 모두 44px 이상
 
@@ -31,7 +31,7 @@ gandong-street-archive/
 │  │  └─ geocode.js        ← npm run geocode (개발용 좌표 조회)
 │  └─ src/
 │     ├─ data/stores.js    ← 가게 데이터 (이름, 주소, 사진 수, 좌표)
-│     ├─ data/mtPlaces.js  ← MT 장소 3곳 (숙소·MT 장소)
+│     ├─ data/mtPlaces.js  ← MT 장소 4곳 (숙소·MT 장소·작업)
 │     ├─ data/site.js      ← 머리 바 문구
 │     ├─ data/places.js    ← 가게·MT 장소를 목록·지도에서 같이 다루는 묶음, 목록 순서, 길찾기 링크
 │     └─ components/       ← KakaoMain(지도·핀·3D·내 위치), BottomSheet, PlaceList, PlaceDetail, Lightbox, EditMap(?edit)
@@ -74,7 +74,6 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 
 - **문구**: `client/src/data/site.js`
 - **한 줄 기록**: `stores.js` 각 가게의 `memo`. 상세 머리에 한 줄로 나오고, 비어 있으면 숨김
-- **분류**: `stores.js`의 `cat`과 `categories` (칩 이름)
 - **MT 장소 사진**: `client/public/photos/mt/`에 `A_월남파병용사만남의장_1.jpg`처럼 넣고 `mtPlaces.js`의 `photoCount`만 고친다. 0장이면 `사진 준비 중` 카드가 나온다
 - **사진 추가**: `client/public/photos/`에 `번호_slug_순번.jpg` 규칙으로 넣고 `stores.js`의 `photoCount`를 고친 뒤 `npm run thumbs` → `npm run check:photos`
 - **가게 추가·수정**: `client/src/data/stores.js`. `slug`는 사진 파일명에 쓰인 이름 (예: `무래이커피 (MOORAEE COFFEE)` → `무래이커피`)

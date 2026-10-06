@@ -1,6 +1,16 @@
 // 상점가 가게와 MT 장소를 목록·지도·상세에서 같은 모양으로 다루기 위한 묶음
-import { filterByCat, fullAddress, photoUrls, shortAddress, thumbOf } from './stores.js'
+import { fullAddress, photoUrls, shortAddress, thumbOf } from './stores.js'
 import { mtPhotoUrls, mtShortAddress } from './mtPlaces.js'
+
+// 칩: 전체 · 상점가 · MT 장소 (세부 분류는 두지 않는다)
+export const CHIPS = [
+  { key: 'all', label: '전체', title: '전체' },
+  { key: 'shop', label: '상점가', title: '간척월명로 상점가' },
+  { key: 'mt', label: 'MT 장소', title: 'MT 장소' },
+]
+
+// 목록 행·상세 부제: "상점가 · 간척월명로 300 · 사진 3", "숙소 · 죽엽산길 81-68"
+const subtitle = (head, short, n) => [head, short, n ? `사진 ${n}` : null].filter(Boolean).join(' · ')
 
 export const toPlaces = (stores, mts) => [
   ...stores.map((s) => {
@@ -10,6 +20,7 @@ export const toPlaces = (stores, mts) => [
       kind: s.annex ? 'annex' : 'shop',
       label: s.id,
       short: shortAddress(s),
+      sub: subtitle(s.annex ? '상점가 밖' : '상점가', shortAddress(s), photos.length),
       full: fullAddress(s),
       photos,
       thumb: photos[0] ? thumbOf(photos[0]) : null,
@@ -22,6 +33,7 @@ export const toPlaces = (stores, mts) => [
       kind: 'mt',
       label: `MT · ${p.id}`,
       short: mtShortAddress(p),
+      sub: subtitle(p.type, mtShortAddress(p), photos.length),
       full: `강원특별자치도 ${p.address.replace(/\s*\(.*\)$/, '')}`,
       photos,
       thumb: photos[0] ? thumbOf(photos[0]) : null,
@@ -29,15 +41,14 @@ export const toPlaces = (stores, mts) => [
   }),
 ]
 
-// 목록 순서와 구분: 상점가 → MT 장소 → 상점가 밖(별관). 칩 필터를 따른다.
+// 목록 순서와 구분: 상점가 → MT 장소 → 상점가 밖(별관). 칩을 따른다.
 // 반환: [{ title | null, items }]
 export function listSections(places, chip) {
-  if (chip === 'mt') return [{ title: null, items: places.filter((p) => p.kind === 'mt') }]
-  const shops = places.filter((p) => p.kind !== 'mt')
-  const inChip = chip === 'all' ? shops : filterByCat(shops, chip)
-  const sections = [{ title: null, items: inChip.filter((p) => p.kind === 'shop') }]
-  if (chip === 'all') sections.push({ title: 'MT 장소', items: places.filter((p) => p.kind === 'mt') })
-  sections.push({ title: '상점가 밖', items: inChip.filter((p) => p.kind === 'annex') })
+  const of = (kind) => places.filter((p) => p.kind === kind)
+  if (chip === 'mt') return [{ title: null, items: of('mt') }]
+  const sections = [{ title: null, items: of('shop') }]
+  if (chip === 'all') sections.push({ title: 'MT 장소', items: of('mt') })
+  sections.push({ title: '상점가 밖', items: of('annex') })
   return sections.filter((s) => s.items.length)
 }
 

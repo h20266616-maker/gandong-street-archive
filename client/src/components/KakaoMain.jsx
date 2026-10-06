@@ -8,6 +8,47 @@ const PERSPECTIVE = 1000
 const TILT_MS = 400
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+// 이름표 너비: 실제 글꼴로 잰다 (캐시)
+const widthCache = new globalThis.Map()
+const labelWidth = (text) => {
+  if (!widthCache.has(text)) {
+    const ctx = (labelWidth.canvas ??= document.createElement('canvas')).getContext('2d')
+    ctx.font = '700 12px "Pretendard Variable", Pretendard, sans-serif'
+    widthCache.set(text, Math.ceil(ctx.measureText(text).width) + 6)
+  }
+  return widthCache.get(text)
+}
+const overlap = (a, b) => Math.max(0, Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1)) * Math.max(0, Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1))
+
+// MT 이름표 자리 정하기: 오른쪽 → 왼쪽 → 위 → 아래 중 다른 핀·이름표·버튼과 겹치지 않고 보이는 영역 안인 첫 자리.
+// 다 겹치면 가장 덜 겹치는 자리
+function placeLabels(items, area, blocked) {
+  const BADGE = 15
+  const H = 16
+  const badges = items.map(({ id, x, y }) => ({ id, x1: x - BADGE, y1: y - BADGE, x2: x + BADGE, y2: y + BADGE }))
+  const placed = []
+  const sides = {}
+  for (const it of items) {
+    const w = labelWidth(it.name)
+    const cand = {
+      right: { x1: it.x + BADGE + 4, x2: it.x + BADGE + 4 + w, y1: it.y - H / 2, y2: it.y + H / 2 },
+      left: { x1: it.x - BADGE - 4 - w, x2: it.x - BADGE - 4, y1: it.y - H / 2, y2: it.y + H / 2 },
+      top: { x1: it.x - w / 2, x2: it.x + w / 2, y1: it.y - BADGE - 3 - H, y2: it.y - BADGE - 3 },
+      bottom: { x1: it.x - w / 2, x2: it.x + w / 2, y1: it.y + BADGE + 3, y2: it.y + BADGE + 3 + H },
+    }
+    let best = null
+    for (const [side, r] of Object.entries(cand)) {
+      const outside = (r.x1 < area.x1 ? area.x1 - r.x1 : 0) + (r.x2 > area.x2 ? r.x2 - area.x2 : 0) + (r.y1 < area.y1 ? area.y1 - r.y1 : 0) + (r.y2 > area.y2 ? r.y2 - area.y2 : 0)
+      const hit = [...badges.filter((b) => b.id !== it.id), ...placed, ...blocked].reduce((n, o) => n + overlap(r, o), 0) + outside * H
+      if (!best || hit < best.hit) best = { side, r, hit }
+      if (hit === 0) break
+    }
+    sides[it.id] = best.side
+    placed.push(best.r)
+  }
+  return sides
+}
+
 // 카카오 오버레이 안에서는 React 이벤트가 올라오지 않아서 네이티브 click을 직접 단다
 function useNativeClick(onClick) {
   const ref = useRef(null)
@@ -26,23 +67,27 @@ function useNativeClick(onClick) {
   return ref
 }
 
-// 평면 핀. 보이는 크기보다 사방 8px 넓은 터치 영역
-function FlatPin({ place, on, dim, onPick }) {
+// 평면 핀. 보이는 크기보다 사방 8px 넓은 터치 영역.
+// 이름표는 상자 밖으로 띄운다(absolute): 상자 크기에 들어가면 카카오가 '핀 + 이름표' 전체의 가운데를 좌표에 맞춰서 핀이 밀린다
+function FlatPin({ place, on, dim, side = 'right', onPick }) {
   const ref = useNativeClick(() => onPick(place.id))
   const isMt = place.kind === 'mt'
   return (
     <button ref={ref} type="button" aria-label={`${place.label} ${place.name}`} className={`pin-hit ${dim ? 'is-dim' : ''}`}>
-      <span className="flex items-center">
-        {isMt ? (
+      {isMt ? (
+        <span className="relative block">
           <span className={`pin-mt ${on ? 'is-on' : ''}`}>{place.id}</span>
-        ) : (
-          <span className="flex flex-col items-center">
+          <span className={`pin-name pin-name-side side-${side}`}>{place.name}</span>
+        </span>
+      ) : (
+        <span className="flex flex-col items-center">
+          <span className="relative block">
             <span className={`pin-shop ${on ? 'is-on' : ''}`}>{place.id}</span>
-            <span className="pin-tail" />
+            {on && <span className="pin-name pin-name-side">{place.name}</span>}
           </span>
-        )}
-        {(isMt || on) && <span className={`pin-name ${isMt ? '' : 'pb-2'}`}>{place.name}</span>}
-      </span>
+          <span className="pin-tail" />
+        </span>
+      )}
     </button>
   )
 }
@@ -59,19 +104,19 @@ function TiltPin({ place, x, y, on, dim, onPick }) {
       className={`pin-hit absolute ${dim ? 'is-dim' : ''}`}
       style={{ left: x, top: y, transform: 'translate(-50%, -100%)', pointerEvents: 'auto', zIndex: on ? 3 : isMt ? 2 : 1 }}
     >
-      <span className="flex items-end">
-        <span className="flex flex-col items-center">
+      <span className="flex flex-col items-center">
+        <span className="relative block">
           {isMt ? <span className={`pin-mt ${on ? 'is-on' : ''}`}>{place.id}</span> : <span className={`pin-shop ${on ? 'is-on' : ''}`}>{place.id}</span>}
-          <span className="pin-stick" style={{ height: stick }} />
-          <span className="pin-foot" />
+          {(isMt || on) && <span className="pin-name pin-name-side">{place.name}</span>}
         </span>
-        {(isMt || on) && <span className="pin-name" style={{ marginBottom: stick }}>{place.name}</span>}
+        <span className="pin-stick" style={{ height: stick }} />
+        <span className="pin-foot" />
       </span>
     </button>
   )
 }
 
-const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, activeIds, insets, fitKey, threeD, me, onPick, onLoadError }, ref) {
+const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, activeIds, insets, blocked = [], fitKey, threeD, me, onPick, onLoadError }, ref) {
   const [loading, error] = useKakaoLoader({ appkey: appKey })
   const outerRef = useRef(null)
   const mapRef = useRef(null)
@@ -117,13 +162,14 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
   }, [loading, redraw])
 
   // ----- 화면 맞추기 (시트·패널에 가리지 않는 영역 기준) -----
-  const fitPlaces = useCallback((list) => {
+  // labelRight: 핀 오른쪽으로 뻗는 이름표 몫 (MT 핀은 이름이 늘 붙어 있다)
+  const fitPlaces = useCallback((list, labelRight = 0) => {
     const map = mapRef.current
     if (!map || !list.length) return
     const b = new kakao.maps.LatLngBounds()
     list.forEach((p) => b.extend(new kakao.maps.LatLng(p.lat, p.lng)))
     const { top, right, bottom, left } = insetsRef.current
-    map.setBounds(b, top + 24, right + 24, bottom + 24, left + 24)
+    map.setBounds(b, top + 24, right + 16 + labelRight, bottom + 24, left + 24)
   }, [])
 
   // 보이는 영역의 가운데에 좌표가 오도록 이동
@@ -176,8 +222,9 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
   const fitList = fitKey?.split(':')[0]
   useEffect(() => {
     if (!mapReady) return
-    const list = fitList === 'mt' ? places.filter((p) => p.kind !== 'annex') : places.filter((p) => p.kind === 'shop')
-    fitPlaces(list)
+    // MT 보기: 상점가와 MT 장소가 다 보이게 (이름표는 겹치지 않는 쪽으로 따로 놓는다)
+    if (fitList === 'mt') fitPlaces(places.filter((p) => p.kind !== 'annex'))
+    else fitPlaces(places.filter((p) => p.kind === 'shop'))
   }, [fitKey, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 고르면 보이는 영역 가운데로. 시트 높이가 바뀌어도 다시 맞춘다
@@ -297,6 +344,21 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
   if (loading) return <div className="flex h-full w-full items-center justify-center bg-[#f5f5f5] text-sm text-[#888]">지도를 불러오는 중</div>
 
   const inTilt = enlarged
+
+  // 평면 모드 MT 이름표 자리 (지도가 움직이면 다시 계산된다)
+  let sides = {}
+  const el = outerRef.current
+  if (!inTilt && mapReady && el) {
+    const proj = mapRef.current.getProjection()
+    const items = places
+      .filter((p) => p.kind === 'mt')
+      .map((p) => {
+        const pt = proj.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng))
+        return { id: p.id, name: p.name, x: pt.x, y: pt.y }
+      })
+    const area = { x1: insets.left + 4, y1: insets.top, x2: el.clientWidth - 4, y2: el.clientHeight - insets.bottom }
+    sides = placeLabels(items, area, blocked)
+  }
   // 3D 핀은 화면 아래쪽(가까운 쪽)일수록 나중에 그려서 위에 오게 한다
   const pins3d = inTilt && mapReady
     ? places.map((p) => ({ p, pt: project(p.lat, p.lng) })).filter((x) => x.pt && !x.pt.behind).sort((a, b) => a.pt.y - b.pt.y)
@@ -332,7 +394,7 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
           {!inTilt &&
             places.map((p) => (
               <CustomOverlayMap key={p.id} position={{ lat: p.lat, lng: p.lng }} xAnchor={0.5} yAnchor={p.kind === 'mt' ? 0.5 : 1} zIndex={p.id === selectedId ? 4 : p.kind === 'mt' ? 3 : 2} clickable>
-                <FlatPin place={p} on={p.id === selectedId} dim={!activeIds.has(p.id)} onPick={onPick} />
+                <FlatPin place={p} on={p.id === selectedId} dim={!activeIds.has(p.id)} side={sides[p.id]} onPick={onPick} />
               </CustomOverlayMap>
             ))}
           {me && (

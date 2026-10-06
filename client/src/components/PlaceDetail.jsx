@@ -23,7 +23,7 @@ export default function PlaceDetail({ place, prev, next, onBack, onGo, onAllPhot
       <header className="px-4 pb-4 pt-1">
         <p className="text-sm text-[#888]">{place.label}</p>
         <h2 className="mt-0.5 text-[26px] font-bold leading-tight break-keep">{place.name}</h2>
-        <p className="mt-1 text-sm text-[#333]">{[place.type, place.short].filter(Boolean).join(' · ')}</p>
+        <p className="mt-1 text-sm text-[#333]">{place.sub}</p>
         {place.distanceNote && <p className="text-sm text-[#333]">{place.distanceNote}</p>}
         {place.memo && <p className="mt-2 text-sm leading-relaxed break-keep">{place.memo}</p>}
       </header>

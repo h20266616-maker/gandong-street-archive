@@ -1,10 +1,10 @@
 // 시트 기본 상태: 장소 목록. 상점가 → MT 장소 → 상점가 밖
-export default function PlaceList({ sections, onPick }) {
+export default function PlaceList({ title, sections, onPick }) {
   const count = sections.reduce((n, s) => n + s.items.length, 0)
   return (
     <div>
       <div className="flex items-baseline justify-between px-4 pb-2 pt-1">
-        <h2 className="text-base font-bold">간척월명로 상점가</h2>
+        <h2 className="text-base font-bold">{title}</h2>
         <span className="text-xs text-[#888]">{count}곳</span>
       </div>
       {sections.map((sec, si) => (
@@ -26,7 +26,7 @@ export default function PlaceList({ sections, onPick }) {
                   )}
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[17px] font-bold leading-snug">{p.name}</span>
-                    <span className="block truncate text-xs text-[#888]">{[p.type, p.short, p.photos.length ? `사진 ${p.photos.length}` : null].filter(Boolean).join(' · ')}</span>
+                    <span className="block truncate text-xs text-[#888]">{p.sub}</span>
                   </span>
                 </button>
               </li>

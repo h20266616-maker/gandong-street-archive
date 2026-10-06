@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { categories, stores as initialStores } from './data/stores.js'
+import { stores as initialStores } from './data/stores.js'
 import { isMtId, mtPlaces as initialMt } from './data/mtPlaces.js'
-import { listSections, placeNeighbors, toPlaces } from './data/places.js'
+import { CHIPS, listSections, placeNeighbors, toPlaces } from './data/places.js'
 import KakaoMain from './components/KakaoMain.jsx'
 import BottomSheet from './components/BottomSheet.jsx'
 import PlaceList from './components/PlaceList.jsx'
@@ -14,7 +14,6 @@ const params = new URLSearchParams(window.location.search)
 const isEditMode = params.has('edit')
 const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY
 const validId = (id) => initialStores.some((s) => s.id === id) || isMtId(id)
-const CHIPS = [{ key: 'all', label: '전체' }, { key: 'mt', label: 'MT 장소' }, ...categories]
 
 function useMedia(query) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -36,7 +35,7 @@ const fab = (on = false) => `flex h-11 w-11 items-center justify-center border b
 export default function App() {
   const [stores, setStores] = useState(initialStores)
   const [mts, setMts] = useState(initialMt)
-  const [chip, setChip] = useState(() => (params.get('view') === 'mt' ? 'mt' : 'all'))
+  const [chip, setChip] = useState(() => (['mt', 'shop'].includes(params.get('view')) ? params.get('view') : 'all'))
   const [selectedId, setSelectedId] = useState(() => (validId(params.get('shop')) ? params.get('shop') : null))
   const [snap, setSnap] = useState(() => (validId(params.get('shop')) ? 'half' : 'peek'))
   const [sheetH, setSheetH] = useState(0)
@@ -65,7 +64,7 @@ export default function App() {
     const q = new URLSearchParams(window.location.search)
     if (selectedId) q.set('shop', selectedId)
     else q.delete('shop')
-    if (chip === 'mt') q.set('view', 'mt')
+    if (chip !== 'all') q.set('view', chip)
     else q.delete('view')
     const s = q.toString()
     history.replaceState(history.state, '', `${window.location.pathname}${s ? `?${s}` : ''}`)
@@ -145,6 +144,22 @@ export default function App() {
   }, [lightbox, selected, prev, next, select, backToList])
 
   const onSheetHeight = useCallback((h) => setSheetH(h), [])
+  // 지도 위 오른쪽 떠 있는 버튼 자리 (이름표가 여기 가리지 않게)
+  const [vw, setVw] = useState(() => window.innerWidth)
+  const [vh, setVh] = useState(() => window.innerHeight)
+  useEffect(() => {
+    const on = () => {
+      setVw(window.innerWidth)
+      setVh(window.innerHeight)
+    }
+    window.addEventListener('resize', on)
+    return () => window.removeEventListener('resize', on)
+  }, [])
+  const fabRect = useMemo(() => {
+    const bottom = vh - (desktop ? 12 : sheetH + 12)
+    return { x1: vw - 12 - 44 - 4, x2: vw, y1: bottom - 44 * 4 - 4, y2: bottom + 4 }
+  }, [vw, vh, desktop, sheetH])
+  const blocked = useMemo(() => [fabRect], [fabRect])
   const insets = useMemo(
     () => (desktop ? { top: 12, right: 68, bottom: 12, left: 444 } : { top: 120, right: 60, bottom: sheetH, left: 0 }),
     [desktop, sheetH],
@@ -207,6 +222,7 @@ export default function App() {
             selectedId={selectedId}
             activeIds={activeIds}
             insets={insets}
+            blocked={blocked}
             fitKey={`${chip === 'mt' ? 'mt' : 'street'}:${fitTick}`}
             threeD={threeD}
             me={me}
@@ -263,7 +279,7 @@ export default function App() {
             allPhotosRef={allPhotosRef}
           />
         ) : (
-          <PlaceList sections={sections} onPick={select} />
+          <PlaceList title={CHIPS.find((c) => c.key === chip).title} sections={sections} onPick={select} />
         )}
       </BottomSheet>
 
