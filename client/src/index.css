@@ -2,14 +2,15 @@
 
 @theme {
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  /* 700px 이하가 모바일 */
-  --breakpoint-wide: 701px;
+  /* 900px 이상이 데스크톱 (왼쪽 패널) */
+  --breakpoint-desk: 900px;
 }
 
 html,
 body {
   height: 100%;
   overflow: hidden;
+  overscroll-behavior: none;
 }
 body {
   margin: 0;
@@ -18,47 +19,81 @@ body {
   font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* ?edit 카카오맵: 흑백은 지도 타일(daumcdn 이미지)에만 */
-.kakao-map img[src*="daumcdn.net"] { filter: grayscale(1) contrast(1.05); }
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-/* 사진 스택 자리. 모바일은 아래 가운데, 넓은 화면은 지도 오른쪽 (세로 44% 지점이 스택 가운데) */
-.stack-wrap {
-  position: absolute;
-  left: 50%;
-  bottom: 140px;
-  width: 66vw;
-  transform: translateX(-50%);
-  z-index: 20;
+/* 핀 터치 영역: 보이는 크기보다 사방 8px 넓게 */
+.pin-hit {
+  display: block;
+  padding: 8px;
+  margin: -8px;
+  background: none;
+  border: 0;
+  cursor: pointer;
 }
-.stack-info {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 0;
-  height: 118px;
-  z-index: 20;
+.pin-hit.is-dim { opacity: 0.25; }
+
+/* 상점가 핀: 흰 원 + 검은 2px 테두리 + 번호, 아래 검은 꼬리. 선택하면 반전하고 조금 크게 */
+.pin-shop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  border: 2px solid #000;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  box-sizing: border-box;
 }
-@media (min-width: 701px) {
-  .stack-wrap {
-    left: auto;
-    right: 5vw;
-    bottom: auto;
-    width: min(32vw, 400px);
-    top: calc(44% - min(32vw, 400px) * 0.375);
-    transform: none;
-  }
-  .stack-info {
-    left: auto;
-    right: 5vw;
-    bottom: auto;
-    width: min(32vw, 400px);
-    height: auto;
-    top: calc(44% + min(32vw, 400px) * 0.375 + 34px);
-  }
+.pin-shop.is-on { width: 34px; height: 34px; background: #000; color: #fff; font-size: 13px; }
+.pin-tail { display: block; width: 2px; height: 8px; background: #000; }
+
+/* MT 장소 핀: 검은 정사각형 */
+.pin-mt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: #000;
+  color: #fff;
+  border: 2px solid #000;
+  font-size: 13px;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+.pin-mt.is-on { background: #fff; color: #000; }
+
+/* 3D 핀의 막대와 바닥 */
+.pin-stick { display: block; width: 2px; background: #000; }
+.pin-foot { display: block; width: 8px; height: 3px; background: #000; }
+
+/* 핀 옆 이름: 흰 외곽선 글자 */
+.pin-name {
+  margin-left: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+  -webkit-text-stroke: 3px #fff;
+  paint-order: stroke fill;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .stack-wrap * { transition: none !important; }
+/* 내 위치: 검은 점 + 흰 테두리 */
+.me-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #000;
+  border: 3px solid #fff;
+  outline: 1px solid #000;
+  box-sizing: border-box;
 }

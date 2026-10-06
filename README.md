@@ -4,36 +4,37 @@
 
 ## 화면
 
-한 화면이다 (페이지 스크롤 없음). 머리 · 분류 칩 · 3D 지도, 그리고 지도 위 오른쪽에 그 가게 사진 더미와 정보.
+핸드폰으로 보는 게 기본이다. 카카오맵·네이버지도 앱처럼 **지도 전체 화면 + 아래 바텀시트**.
 
-- 3D 지도: 카카오 좌표를 평면 미터 좌표로 바꿔 SVG로 그린 아이소메트릭 지도 (라이브러리 없음). 드래그로 회전, 휠·`+`·`−`로 줌(0.55~2.4배), `↺` 기본값
-- 핀을 누르면 그 가게로 카메라가 옮겨 가고 사진 더미가 날아 들어온다. 이미 고른 핀을 다시 누르면 다음 사진
-- 사진 더미: 맨 앞 카드 클릭·스페이스·스와이프로 다음 사진, 뒤 카드를 누르면 그 카드가 앞으로. 핀과 더미는 점선으로 이어진다
-- 전체 사진: 2단으로 원본 비율·원본 색 그대로. 누르면 라이트박스
-- 별관(식물의정석)은 지도에 그리지 않고, 고르면 왼쪽 위에 `← 서쪽 3km, 유촌리`가 뜬다
-- MT 장소 3곳(A 숙소, B·C MT 장소)은 검은 사각 배지로 그린다. `MT 장소` 칩을 누르면 상점가와 세 곳이 한 화면에 들어오는 전체 보기(`?view=mt`)가 되고, 배지를 누르면 그곳으로 간다
-- 키보드: ←/→ 이전·다음 가게(분류 안에서), 스페이스 다음 사진, Enter 전체 사진, ESC 닫기
-- 링크: 현재 가게가 `?shop=08`, MT 장소는 `?shop=A`처럼 주소에 남는다. 처음엔 08 간동우체국
-- 700px 이하에서는 지도가 위, 사진 더미가 아래 가운데
-- UI는 흑백만 쓰고, 사진에는 어떤 필터도 걸지 않는다
+- 지도: 카카오맵을 원래 색으로, 평면으로. 상점가는 흰 원 번호 핀, MT 장소는 검은 사각 `A/B/C`
+- 위쪽: `간척월명로` 바와 칩 `전체 · MT 장소 · 식당 · 카페·떡집 · 상점·기관`
+- 오른쪽 버튼: `3D`(지도를 기울이고 막대 핀으로, 두 손가락으로 회전) · `◎` 내 위치 · `+` · `−`
+- 바텀시트: peek 36% · half 52% · full 88%. 손잡이를 끌거나 탭한다
+  - 목록: 상점가 → MT 장소 → 상점가 밖. 칩 필터를 따른다
+  - 상세: `← 목록 · 길찾기(카카오맵 앱) · 사진 n장`, 가로로 넘기는 사진, 이전·다음 장소, 아래로 전체 사진
+- 사진을 누르면 검은 라이트박스 (스와이프, `닫기`)
+- 링크: `?shop=10`, `?shop=A`로 그 장소 상세가 바로 열린다 (단톡방 공유용). `?view=mt`는 MT 장소 칩
+- 900px 이상에서는 바텀시트가 왼쪽 420px 패널이 된다
+- UI는 흑백, 사진은 원본 색. 누를 수 있는 것은 모두 44px 이상
 
-기술: React + Vite + Tailwind CSS (JavaScript). 3D 지도는 SVG 직접 계산(`src/iso.js`), `?edit` 좌표 조정만 카카오맵(react-kakao-maps-sdk)을 쓴다. 배포는 Vercel 정적 사이트.
+기술: React + Vite + Tailwind CSS (JavaScript), 카카오맵(react-kakao-maps-sdk). 배포는 Vercel 정적 사이트.
 
 ## 폴더 구조
 
 ```
 gandong-street-archive/
 ├─ client/                 ← 프론트엔드 (Vite 프로젝트)
-│  ├─ public/photos/       ← 사진 (번호_가게이름_순번.jpg)
+│  ├─ public/photos/       ← 사진 (번호_가게이름_순번.jpg), thumb/ 는 목록용 400px 썸네일
 │  ├─ scripts/
 │  │  ├─ check-photos.js   ← npm run check:photos
+│  │  ├─ make-thumbs.js    ← npm run thumbs (400px 썸네일 만들기)
 │  │  └─ geocode.js        ← npm run geocode (개발용 좌표 조회)
 │  └─ src/
 │     ├─ data/stores.js    ← 가게 데이터 (이름, 주소, 사진 수, 좌표)
 │     ├─ data/mtPlaces.js  ← MT 장소 3곳 (숙소·MT 장소)
 │     ├─ data/site.js      ← 머리 바 문구
-│     ├─ iso.js            ← 3D 지도 계산 (좌표 변환, 길·건물, 투영)
-│     └─ components/       ← IsoMap, PhotoStack, AllPhotos, Lightbox, EditMap(?edit)
+│     ├─ data/places.js    ← 가게·MT 장소를 목록·지도에서 같이 다루는 묶음, 목록 순서, 길찾기 링크
+│     └─ components/       ← KakaoMain(지도·핀·3D·내 위치), BottomSheet, PlaceList, PlaceDetail, Lightbox, EditMap(?edit)
 └─ README.md
 ```
 
@@ -55,7 +56,7 @@ npm run dev
 VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 ```
 
-[Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → 앱 설정 → 플랫폼 → **Web 사이트 도메인**에 아래 주소를 등록해야 지도가 뜬다. (카카오맵은 `?edit` 좌표 조정 화면에서만 쓴다.)
+[Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → 앱 설정 → 플랫폼 → **Web 사이트 도메인**에 아래 주소를 등록해야 지도가 뜬다. 등록 안 된 주소에서는 지도가 뜨지 않는다.
 
 - `http://localhost:5173` (개발)
 - `https://gandong-street-archive.vercel.app` (운영, 아래 배포 섹션 참고)
@@ -65,16 +66,17 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 | `npm run dev` | 개발 서버 |
 | `npm run build` | 배포용 빌드 (`client/dist`) |
 | `npm run preview` | 빌드 결과 미리보기 |
+| `npm run thumbs` | 목록용 400px 썸네일 만들기 (사진을 넣은 뒤 실행) |
 | `npm run check:photos` | `stores.js`의 `photoCount`와 실제 사진 파일이 맞는지 검사 |
 | `npm run geocode` | Nominatim으로 주소 좌표 조회 (개발용, 결과는 손으로 `stores.js`에 고정) |
 
 ## 내용 고치기
 
 - **문구**: `client/src/data/site.js`
-- **한 줄 기록**: `stores.js` 각 가게의 `memo`. 사진 더미 아래 정보에 한 줄로 나오고, 비어 있으면 숨김
+- **한 줄 기록**: `stores.js` 각 가게의 `memo`. 상세 머리에 한 줄로 나오고, 비어 있으면 숨김
 - **분류**: `stores.js`의 `cat`과 `categories` (칩 이름)
 - **MT 장소 사진**: `client/public/photos/mt/`에 `A_월남파병용사만남의장_1.jpg`처럼 넣고 `mtPlaces.js`의 `photoCount`만 고친다. 0장이면 `사진 준비 중` 카드가 나온다
-- **사진 추가**: `client/public/photos/`에 `번호_slug_순번.jpg` 규칙으로 넣고 `stores.js`의 `photoCount`만 고친 뒤 `npm run check:photos`로 확인
+- **사진 추가**: `client/public/photos/`에 `번호_slug_순번.jpg` 규칙으로 넣고 `stores.js`의 `photoCount`를 고친 뒤 `npm run thumbs` → `npm run check:photos`
 - **가게 추가·수정**: `client/src/data/stores.js`. `slug`는 사진 파일명에 쓰인 이름 (예: `무래이커피 (MOORAEE COFFEE)` → `무래이커피`)
 
 ## 핀 위치 조정 (`?edit` 모드)
@@ -88,7 +90,7 @@ MT 장소는 상점가에서 멀어서 첫 화면 밖에 있다. 지도 왼쪽 �
 
 `?edit`가 없는 일반 방문자에게는 드래그·출력 UI가 보이지 않는다.
 
-> 별관(`annex: true`, 지금은 01 식물의정석)은 3D 지도에 그리지 않는다.
+> 별관(`annex: true`, 지금은 01 식물의정석)은 목록 맨 아래 `상점가 밖`에 나온다.
 >
 > 현재 좌표는 카카오 주소 검색(번지 단위) 결과를 고정한 값이다. 07 다올미용실(306 검색 안 됨)은 우체국 옆에, 312의 세 가게는 도로 방향을 따라 약 12m 간격으로 벌려 놓았다.
 
@@ -118,7 +120,7 @@ MT 장소는 상점가에서 멀어서 첫 화면 밖에 있다. 지도 왼쪽 �
 
 ### 카카오 도메인 등록
 
-[Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → (화천 앱과 같은 앱) → 앱 설정 → 플랫폼 → **Web → 사이트 도메인**에 아래 주소가 있어야 카카오맵이 뜬다. 없으면 `?edit` 화면에 지도가 뜨지 않는다.
+[Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → (화천 앱과 같은 앱) → 앱 설정 → 플랫폼 → **Web → 사이트 도메인**에 아래 주소가 있어야 카카오맵이 뜬다. 없으면 지도가 뜨지 않고 목록만 보인다.
 
 - `https://gandong-street-archive.vercel.app` (운영)
 - `http://localhost:5173` (개발, 이미 등록됨)

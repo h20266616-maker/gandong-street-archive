@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { categories, filterByCat, listOrder, neighbors, photoUrls, shortAddress, distanceShort, stores as initialStores } from './data/stores.js'
-import { isMtId, mtPhotoUrls, mtPlaces as initialMt, mtShortAddress } from './data/mtPlaces.js'
-import { site } from './data/site.js'
-import { makeWorld } from './iso.js'
-import IsoMap from './components/IsoMap.jsx'
-import PhotoStack from './components/PhotoStack.jsx'
-import AllPhotos from './components/AllPhotos.jsx'
+import { categories, stores as initialStores } from './data/stores.js'
+import { isMtId, mtPlaces as initialMt } from './data/mtPlaces.js'
+import { listSections, placeNeighbors, toPlaces } from './data/places.js'
+import KakaoMain from './components/KakaoMain.jsx'
+import BottomSheet from './components/BottomSheet.jsx'
+import PlaceList from './components/PlaceList.jsx'
+import PlaceDetail from './components/PlaceDetail.jsx'
 import Lightbox from './components/Lightbox.jsx'
 import EditMap from './components/EditMap.jsx'
 
@@ -13,8 +13,8 @@ const params = new URLSearchParams(window.location.search)
 // URL에 ?edit 가 있을 때만 카카오맵 핀 드래그 + 좌표 출력
 const isEditMode = params.has('edit')
 const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY
-const DEFAULT_SHOP = '08'
 const validId = (id) => initialStores.some((s) => s.id === id) || isMtId(id)
+const CHIPS = [{ key: 'all', label: '전체' }, { key: 'mt', label: 'MT 장소' }, ...categories]
 
 function useMedia(query) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -29,135 +29,134 @@ function useMedia(query) {
 
 // data 파일의 배열 자리에 그대로 붙여넣을 수 있는 형태
 const toSource = (name, list) => `export const ${name} = [\n` + list.map((s) => `  ${JSON.stringify(s)},`).join('\n') + '\n]'
-
-// 별관 안내: "← 서쪽 3km, 유촌리"
-const annexLabel = (s) => {
-  const dir = s.distanceNote?.match(/([동서남북])쪽/)?.[1]
-  const village = s.address.match(/(\S+리)/)?.[1]
-  return `← ${[dir && `${dir}쪽`, distanceShort(s)].filter(Boolean).join(' ')}${village ? `, ${village}` : ''}`
-}
-
-// MT 장소 순서 A → B → C → A
-const mtNeighbors = (list, place) => {
-  const i = list.findIndex((p) => p.id === place.id)
-  return { prev: list[(i - 1 + list.length) % list.length], next: list[(i + 1) % list.length] }
-}
-
-const link = 'underline underline-offset-4 hover:no-underline'
 const moveIn = (list, id, lat, lng) => list.map((s) => (s.id === id ? { ...s, lat: +lat.toFixed(6), lng: +lng.toFixed(6) } : s))
+
+const fab = (on = false) => `flex h-11 w-11 items-center justify-center border border-black text-sm font-semibold ${on ? 'bg-black text-white' : 'bg-white text-black'}`
 
 export default function App() {
   const [stores, setStores] = useState(initialStores)
   const [mts, setMts] = useState(initialMt)
-  const [shopId, setShopId] = useState(() => (validId(params.get('shop')) ? params.get('shop') : DEFAULT_SHOP))
-  const [overview, setOverview] = useState(() => params.get('view') === 'mt')
-  const [cat, setCat] = useState(() => (params.get('view') === 'mt' || isMtId(params.get('shop')) ? 'mt' : 'all'))
-  const [photo, setPhoto] = useState(0)
-  const [allOpen, setAllOpen] = useState(false)
+  const [chip, setChip] = useState(() => (params.get('view') === 'mt' ? 'mt' : 'all'))
+  const [selectedId, setSelectedId] = useState(() => (validId(params.get('shop')) ? params.get('shop') : null))
+  const [snap, setSnap] = useState(() => (validId(params.get('shop')) ? 'half' : 'peek'))
+  const [sheetH, setSheetH] = useState(0)
+  const [fitTick, setFitTick] = useState(0)
+  const [threeD, setThreeD] = useState(false)
+  const [me, setMe] = useState(null)
+  const [locating, setLocating] = useState(false)
+  const [toast, setToast] = useState(null)
   const [lightbox, setLightbox] = useState(null) // 사진 번호
-  const frontRef = useRef(null)
-  const lastStreet = useRef(isMtId(shopId) ? DEFAULT_SHOP : shopId)
-  const isMobile = useMedia('(max-width: 700px)')
+  const [kakaoFailed, setKakaoFailed] = useState(false)
+  const desktop = useMedia('(min-width: 900px)')
+  const sheetScroll = useRef(null)
+  const allPhotosRef = useRef(null)
+  const mapApi = useRef(null)
+  const watchId = useRef(null)
 
-  const world = useMemo(() => makeWorld(initialStores, initialMt), [])
-  const isMt = isMtId(shopId)
-  const item = isMt ? mts.find((p) => p.id === shopId) : stores.find((s) => s.id === shopId)
-  const photos = isMt ? mtPhotoUrls(item) : photoUrls(item)
-  const n = photos.length
-  const filtered = useMemo(() => filterByCat(stores, cat === 'mt' ? 'all' : cat), [stores, cat])
+  const places = useMemo(() => toPlaces(stores, mts), [stores, mts])
+  const sections = useMemo(() => listSections(places, chip), [places, chip])
+  const activeIds = useMemo(() => new Set(sections.flatMap((s) => s.items.map((p) => p.id))), [sections])
+  const selected = places.find((p) => p.id === selectedId) ?? null
+  const { prev, next } = selected ? placeNeighbors(activeIds.has(selected.id) ? sections : listSections(places, 'all'), selected.id) : {}
 
-  // 흐리게 하지 않을 핀: MT 칩이면 MT 장소만, 전체면 모두, 다른 분류면 그 분류 가게만
-  const activeIds = useMemo(() => {
-    if (cat === 'mt') return new Set(mts.map((p) => p.id))
-    if (cat === 'all') return new Set([...stores.map((s) => s.id), ...mts.map((p) => p.id)])
-    return new Set(filtered.map((s) => s.id))
-  }, [cat, stores, mts, filtered])
-
-  const { prev, next } = isMt ? mtNeighbors(mts, item) : neighbors(activeIds.has(item.id) && cat !== 'mt' ? filtered : stores, item)
-
-  // 현재 곳을 ?shop=08 (전체 보기면 &view=mt) 로 남긴다. 다른 파라미터는 그대로
+  // 지금 장소를 ?shop=10 으로 (MT 칩이면 &view=mt). 단톡방에 링크를 그대로 공유할 수 있게
   useEffect(() => {
     if (isEditMode) return
     const q = new URLSearchParams(window.location.search)
-    q.set('shop', shopId)
-    if (overview) q.set('view', 'mt')
+    if (selectedId) q.set('shop', selectedId)
+    else q.delete('shop')
+    if (chip === 'mt') q.set('view', 'mt')
     else q.delete('view')
-    history.replaceState(history.state, '', `${window.location.pathname}?${q}`)
-  }, [shopId, overview])
+    const s = q.toString()
+    history.replaceState(history.state, '', `${window.location.pathname}${s ? `?${s}` : ''}`)
+  }, [selectedId, chip])
+
+  const toastTimer = useRef(0)
+  const showToast = useCallback((msg) => {
+    setToast(msg)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), 2500)
+  }, [])
 
   const select = useCallback((id) => {
-    if (!isMtId(id)) lastStreet.current = id
-    setShopId(id)
-    setPhoto(0)
+    setSelectedId(id)
+    setSnap((s) => (s === 'full' ? 'full' : 'half'))
+    sheetScroll.current?.scrollTo({ top: 0 })
   }, [])
-  const nextPhoto = useCallback(() => n && setPhoto((i) => (i + 1) % n), [n])
-  const prevPhoto = useCallback(() => n && setPhoto((i) => (i - 1 + n) % n), [n])
+  const backToList = useCallback(() => {
+    setSelectedId(null)
+    setSnap('peek')
+    sheetScroll.current?.scrollTo({ top: 0 })
+  }, [])
 
-  // 핀: 전체 보기에서는 그곳으로 들어가고, 다른 곳이면 고르고, 이미 고른 곳이면 다음 사진
-  const pick = useCallback(
-    (id) => {
-      if (!isMtId(id) && cat === 'mt') setCat('all') // 상점가 핀을 누르면 상점가 보기로
-      if (overview) {
-        setOverview(false)
-        select(id)
-      } else if (id === shopId) nextPhoto()
-      else select(id)
-    },
-    [overview, shopId, cat, nextPhoto, select],
-  )
-
-  const chooseCat = (key) => {
-    setCat(key)
-    if (key === 'mt') {
-      setOverview(true)
-      return
-    }
-    setOverview(false)
-    const inCat = listOrder(filterByCat(stores, key))
-    if (isMt) select(key === 'all' ? lastStreet.current : inCat[0].id)
-    else if (inCat.length && !inCat.some((s) => s.id === shopId)) select(inCat[0].id)
+  const chooseChip = (key) => {
+    setChip(key)
+    setSelectedId(null)
+    setSnap('peek')
+    setFitTick((t) => t + 1)
+    sheetScroll.current?.scrollTo({ top: 0 })
   }
 
-  // 키보드: ←/→ 이전·다음 가게(분류 안에서), 스페이스 다음 사진, Enter 전체 사진, ESC 닫기
+  const openAllPhotos = () => {
+    setSnap('full')
+    setTimeout(() => allPhotosRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 280)
+  }
+
+  // 내 위치: 켜면 watchPosition, 다시 누르면 끈다
+  const toggleLocate = () => {
+    if (locating) {
+      if (watchId.current != null) navigator.geolocation.clearWatch(watchId.current)
+      watchId.current = null
+      setLocating(false)
+      setMe(null)
+      return
+    }
+    if (!('geolocation' in navigator)) {
+      showToast('위치를 확인할 수 없어요')
+      return
+    }
+    setLocating(true)
+    watchId.current = navigator.geolocation.watchPosition(
+      (pos) => setMe({ lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy }),
+      () => {
+        showToast('위치를 확인할 수 없어요')
+        if (watchId.current != null) navigator.geolocation.clearWatch(watchId.current)
+        watchId.current = null
+        setLocating(false)
+        setMe(null)
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
+    )
+  }
+  useEffect(() => () => watchId.current != null && navigator.geolocation.clearWatch(watchId.current), [])
+
+  // 키보드: ←/→ 이전·다음 장소, ESC 목록으로 (라이트박스가 열려 있으면 라이트박스가 처리)
   useEffect(() => {
     if (isEditMode) return undefined
     const onKey = (e) => {
-      if (lightbox != null) return // 라이트박스가 직접 처리
-      if (allOpen) {
-        if (e.key === 'Escape') setAllOpen(false)
-        return
-      }
-      if (overview) return
+      if (lightbox != null || !selected) return
       if (e.target instanceof HTMLElement && e.target.closest('input, textarea')) return
-      if (e.key === 'ArrowLeft' && prev) select(prev.id)
+      if (e.key === 'Escape') backToList()
+      else if (e.key === 'ArrowLeft' && prev) select(prev.id)
       else if (e.key === 'ArrowRight' && next) select(next.id)
-      else if (e.key === ' ') {
-        e.preventDefault()
-        nextPhoto()
-      } else if (e.key === 'Enter' && n) {
-        e.preventDefault()
-        setAllOpen(true)
-      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [lightbox, allOpen, overview, prev, next, n, select, nextPhoto])
+  }, [lightbox, selected, prev, next, select, backToList])
 
-  const label = isMt ? `MT · ${item.id}` : item.id
-  const short = isMt ? mtShortAddress(item) : shortAddress(item)
-  const infoLine = [item.type, short, n ? `사진 ${n}장` : null].filter(Boolean).join(' · ')
-
-  const header = (
-    <header className="flex shrink-0 flex-col gap-0.5 border-b border-black px-4 py-3 wide:flex-row wide:items-baseline wide:justify-between wide:gap-6 wide:px-6">
-      <h1 className="text-[22px] font-bold leading-tight">{site.title}</h1>
-      <p className="truncate text-xs text-[#888]">{site.meta.join(' · ')}</p>
-    </header>
+  const onSheetHeight = useCallback((h) => setSheetH(h), [])
+  const insets = useMemo(
+    () => (desktop ? { top: 12, right: 68, bottom: 12, left: 444 } : { top: 120, right: 60, bottom: sheetH, left: 0 }),
+    [desktop, sheetH],
   )
 
   if (isEditMode) {
     return (
       <div className="flex h-dvh flex-col">
-        {header}
+        <header className="flex h-12 shrink-0 items-center justify-between border-b border-black px-4">
+          <h1 className="text-lg font-bold">간척월명로</h1>
+          <p className="text-xs text-[#888]">편집 모드</p>
+        </header>
         <div className="min-h-0 flex-1">
           {KAKAO_MAP_KEY ? (
             <EditMap
@@ -194,92 +193,95 @@ export default function App() {
     )
   }
 
+  const fabBottom = desktop ? 12 : sheetH + 12
+
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
-      {header}
+    <div className="fixed inset-0 overflow-hidden">
+      {/* 지도: 화면 전체 */}
+      <div className="fixed inset-0">
+        {KAKAO_MAP_KEY && !kakaoFailed ? (
+          <KakaoMain
+            ref={mapApi}
+            appKey={KAKAO_MAP_KEY}
+            places={places}
+            selectedId={selectedId}
+            activeIds={activeIds}
+            insets={insets}
+            fitKey={`${chip === 'mt' ? 'mt' : 'street'}:${fitTick}`}
+            threeD={threeD}
+            me={me}
+            onPick={select}
+            onLoadError={() => setKakaoFailed(true)}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center bg-[#f5f5f5] px-8 text-center text-sm text-[#888]">지도를 불러오지 못했어요. 목록에서 장소를 볼 수 있어요.</div>
+        )}
+      </div>
 
-      <nav aria-label="분류" className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-black px-4 py-2.5 wide:px-6">
-        {[{ key: 'all', label: '전체' }, { key: 'mt', label: 'MT 장소' }, ...categories].map((c) => (
-          <button
-            key={c.key}
-            type="button"
-            aria-pressed={cat === c.key}
-            onClick={() => chooseCat(c.key)}
-            className={`shrink-0 whitespace-nowrap border border-black px-3 py-1 text-[13px] ${cat === c.key ? 'bg-black text-white' : 'bg-white hover:bg-black hover:text-white'}`}
-          >
-            {c.label}
-          </button>
-        ))}
-      </nav>
+      {/* 위쪽 떠 있는 바 + 칩 */}
+      <div className="fixed left-3 right-3 z-40 desk:right-auto desk:w-[420px]" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
+        <header className="flex h-12 items-center justify-between gap-3 border border-black bg-white px-4">
+          <h1 className="text-lg font-bold">간척월명로</h1>
+          <p className="truncate text-xs text-[#888]">하얀도화지 MT · 2026.10</p>
+        </header>
+        <nav aria-label="분류" className="no-scrollbar -mx-3 flex gap-1.5 overflow-x-auto px-3 desk:mx-0 desk:px-0">
+          {CHIPS.map((c) => (
+            <button key={c.key} type="button" aria-pressed={chip === c.key} onClick={() => chooseChip(c.key)} className="flex h-11 shrink-0 items-center">
+              <span className={`flex h-9 items-center whitespace-nowrap border border-black px-3.5 text-[13px] ${chip === c.key ? 'bg-black text-white' : 'bg-white'}`}>{c.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
 
-      <main className="relative min-h-0 flex-1 overflow-hidden">
-        <IsoMap
-          world={world}
-          mtPlaces={mts}
-          selectedId={shopId}
-          activeIds={activeIds}
-          overview={overview}
-          isMobile={isMobile}
-          anchorRef={frontRef}
-          kickKey={`${shopId}:${photo}:${overview}`}
-          onPick={pick}
+      {/* 오른쪽 떠 있는 버튼: 시트 높이를 따라 움직인다 */}
+      <div className="fixed right-3 z-40 flex flex-col" style={{ bottom: fabBottom, transition: 'bottom .25s ease-out' }}>
+        <button type="button" aria-pressed={threeD} onClick={() => setThreeD((v) => !v)} className={fab(threeD)}>
+          3D
+        </button>
+        <button type="button" aria-pressed={locating} aria-label="내 위치" onClick={toggleLocate} className={`${fab(locating)} -mt-px text-lg`}>
+          ◎
+        </button>
+        <button type="button" aria-label="확대" onClick={() => mapApi.current?.zoomIn()} className={`${fab()} -mt-px text-lg`}>
+          +
+        </button>
+        <button type="button" aria-label="축소" onClick={() => mapApi.current?.zoomOut()} className={`${fab()} -mt-px text-lg`}>
+          −
+        </button>
+      </div>
+
+      <BottomSheet snap={snap} onSnap={setSnap} desktop={desktop} onHeight={onSheetHeight} scrollRef={sheetScroll}>
+        {selected ? (
+          <PlaceDetail
+            key={selected.id}
+            place={selected}
+            prev={prev}
+            next={next}
+            onBack={backToList}
+            onGo={select}
+            onAllPhotos={openAllPhotos}
+            onOpenPhoto={setLightbox}
+            allPhotosRef={allPhotosRef}
+          />
+        ) : (
+          <PlaceList sections={sections} onPick={select} />
+        )}
+      </BottomSheet>
+
+      {toast && (
+        <div role="status" className="fixed left-1/2 z-[60] -translate-x-1/2 bg-black px-4 py-3 text-sm text-white" style={{ top: 'calc(env(safe-area-inset-top) + 130px)' }}>
+          {toast}
+        </div>
+      )}
+
+      {lightbox != null && selected && (
+        <Lightbox
+          title={`${selected.label} ${selected.name} — ${selected.short}`}
+          name={selected.name}
+          photos={selected.photos}
+          index={lightbox}
+          onIndexChange={setLightbox}
+          onClose={() => setLightbox(null)}
         />
-
-        {!overview && item.annex && (
-          <button
-            type="button"
-            onClick={() => select(listOrder(stores)[0].id)}
-            className="absolute left-4 top-4 z-20 border border-black bg-white px-3 py-2 text-[13px] font-semibold hover:bg-black hover:text-white"
-          >
-            {annexLabel(item)}
-          </button>
-        )}
-
-        {!overview && (
-          <>
-            <div className="stack-wrap">
-              <PhotoStack key={item.id} name={item.name} photos={photos} index={photo} onIndex={setPhoto} onNext={nextPhoto} onPrev={prevPhoto} frontRef={frontRef} />
-              {n > 0 && (
-                <p className="mt-3 text-[11px] text-[#888]">
-                  {photo + 1} / {n}
-                </p>
-              )}
-            </div>
-
-            <section className="stack-info bg-white/85 py-1 wide:py-2">
-              <p className="text-xs text-[#888]">{label}</p>
-              <h2 className="truncate text-[24px] font-bold leading-tight wide:text-[30px]">{item.name}</h2>
-              <p className="truncate text-[13px] text-[#333]">{infoLine}</p>
-              {item.memo && <p className="mt-1 truncate text-[13px]">{item.memo}</p>}
-              <p className="mt-2 flex flex-wrap gap-x-2 text-[13px]">
-                {n > 0 && (
-                  <>
-                    <button type="button" onClick={nextPhoto} className={link}>
-                      다음 사진
-                    </button>
-                    <span aria-hidden>·</span>
-                    <button type="button" onClick={() => setAllOpen(true)} className={link}>
-                      전체 사진
-                    </button>
-                  </>
-                )}
-                {next && (
-                  <>
-                    {n > 0 && <span aria-hidden>·</span>}
-                    <button type="button" onClick={() => select(next.id)} className={link}>
-                      {isMt ? '다음 장소 →' : '다음 가게 →'}
-                    </button>
-                  </>
-                )}
-              </p>
-            </section>
-          </>
-        )}
-      </main>
-
-      {allOpen && <AllPhotos label={label} name={item.name} photos={photos} onOpen={setLightbox} onClose={() => setAllOpen(false)} />}
-      {lightbox != null && (
-        <Lightbox title={`${label} ${item.name} — ${short}`} name={item.name} photos={photos} index={lightbox} onIndexChange={setLightbox} onClose={() => setLightbox(null)} />
       )}
     </div>
   )

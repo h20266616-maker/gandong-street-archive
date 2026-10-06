@@ -24,23 +24,22 @@ export const stores = [
   { id: '13', cat: 'snack', type: '분식', memo: '', name: '미정이네', slug: '미정이네', address: '간척월명로 312', photoCount: 2, lat: 38.055185, lng: 127.817692, note: '김밥·라면·돈까스' },
 ]
 
-// 분류 칩 (전체는 화면에서 앞에 붙인다)
+// 분류 칩 (전체·MT 장소는 화면에서 앞에 붙인다). 칩 하나가 cat 여러 개를 묶는다
 export const categories = [
-  { key: 'food', label: '식당' },
-  { key: 'cafe', label: '카페·떡집' },
-  { key: 'shop', label: '상점' },
-  { key: 'service', label: '우체국·미용실' },
-  { key: 'snack', label: '분식·치킨' },
+  { key: 'food', label: '식당', cats: ['food', 'snack'] },
+  { key: 'cafe', label: '카페·떡집', cats: ['cafe'] },
+  { key: 'place', label: '상점·기관', cats: ['shop', 'service'] },
 ]
-export const filterByCat = (list, cat) => (cat && cat !== 'all' ? list.filter((s) => s.cat === cat) : list)
+export const filterByCat = (list, key) => {
+  const c = categories.find((x) => x.key === key)
+  return c ? list.filter((s) => c.cats.includes(s.cat)) : list
+}
 
 export const hasCoords = (s) => s.lat != null && s.lng != null
 
 // 지도 첫 화면 범위에 쓰는 상점가 가게 (별관 제외)
 export const streetStores = (list) => list.filter((s) => hasCoords(s) && !s.annex)
 
-// 목록 순서: 상점가 가게 다음에 별관
-export const listOrder = (list) => [...list.filter((s) => !s.annex), ...list.filter((s) => s.annex)]
 
 // 짧은 주소: 상점가는 "간척월명로 311-1", 별관은 "유촌리 1043-4"
 export const shortAddress = (s) => s.address.replace(/^간동면\s*/, '')
@@ -49,8 +48,6 @@ const PROVINCE = '강원특별자치도 화천군'
 export const fullAddress = (s) =>
   !s.address ? '' : s.address.startsWith('간동면') ? `${PROVINCE} ${s.address}` : `${PROVINCE} 간동면 ${s.address}`
 
-// 별관까지의 거리 ("상점가에서 서쪽 약 3km" → "3km")
-export const distanceShort = (s) => s.distanceNote?.match(/\d+(?:\.\d+)?\s?k?m/)?.[0] ?? ''
 
 // 상점가 한가운데 (간동우체국 부근). 지도 초기 중심이자 편집 모드에서 미정 핀을 놓는 기준점
 export const MAP_CENTER = [38.0546, 127.8173]
@@ -68,12 +65,6 @@ export const pinsFor = (list, editMode, anchor) => {
 export const photoUrl = (store, n) => encodeURI(`/photos/${store.id}_${store.slug}_${n}.jpg`)
 export const photoUrls = (store) =>
   Array.from({ length: store.photoCount }, (_, i) => photoUrl(store, i + 1))
-export const thumbUrl = (store) => photoUrl(store, 1)
+// 목록용 400px 썸네일 (npm run thumbs 로 public/photos/thumb/ 에 만든다)
+export const thumbOf = (url) => url.replace('/photos/', '/photos/thumb/')
 
-// 가게 순서(02 → … → 13 → 별관 01 → 02)에서 이전·다음 가게
-export const neighbors = (list, store) => {
-  const order = listOrder(list)
-  const i = order.findIndex((s) => s.id === store.id)
-  if (i < 0 || order.length < 2) return { prev: null, next: null }
-  return { prev: order[(i - 1 + order.length) % order.length], next: order[(i + 1) % order.length] }
-}
