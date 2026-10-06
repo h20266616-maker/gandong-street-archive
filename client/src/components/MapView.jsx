@@ -7,17 +7,17 @@ import AnnexToggle from './AnnexToggle.jsx'
 const pinIcon = (id, { active, unplaced }) =>
   L.divIcon({
     className: 'pin-icon',
-    html: `<div class="pin${active ? ' is-active' : ''}${unplaced ? ' is-unplaced' : ''}">${Number(id)}</div>`,
-    iconSize: [26, 26],
-    iconAnchor: [13, 13],
+    html: `<div class="pin${active ? ' is-active' : ''}${unplaced ? ' is-unplaced' : ''}">${id}</div>`,
+    iconSize: [26, 20],
+    iconAnchor: [13, 10],
   })
 
 const annexIcon = (id, { active }) =>
   L.divIcon({
     className: 'pin-icon',
     html: `<div class="pin-annex${active ? ' is-active' : ''}">${id} 별관</div>`,
-    iconSize: [54, 22],
-    iconAnchor: [27, 11],
+    iconSize: [54, 20],
+    iconAnchor: [27, 10],
   })
 
 const fitStreet = (map, points) => {
@@ -46,7 +46,7 @@ function FlyToSelected({ store }) {
   return null
 }
 
-export default function MapView({ stores, selectedId, onSelect, editMode, onMove }) {
+export default function MapView({ stores, activeIds, selectedId, onSelect, editMode, onMove }) {
   const [map, setMap] = useState(null)
   const path = streetStores(stores).map((s) => [s.lat, s.lng])
   const annex = stores.find((s) => s.annex && hasCoords(s))
@@ -71,12 +71,13 @@ export default function MapView({ stores, selectedId, onSelect, editMode, onMove
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           maxZoom={19}
         />
-        <Polyline positions={path} pathOptions={{ color: '#000', weight: 1.5, dashArray: '2 6', opacity: 0.8 }} />
+        <Polyline positions={path} pathOptions={{ color: '#1E1E1C', weight: 1.5, dashArray: '2 6', opacity: 0.8 }} />
         {visible.map((s) => (
           <Marker
             key={s.id}
             position={[s.lat, s.lng]}
             icon={s.annex ? annexIcon(s.id, { active: s.id === selectedId }) : pinIcon(s.id, { active: s.id === selectedId, unplaced: s.unplaced })}
+            opacity={!activeIds || activeIds.has(s.id) ? 1 : 0.2}
             zIndexOffset={s.id === selectedId ? 1000 : 0}
             title={s.name}
             draggable={editMode}

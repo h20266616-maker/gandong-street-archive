@@ -3,6 +3,17 @@
 2026 하얀도화지 MT 때 걸었던 강원 화천군 간동면 간척월명로 상점가를 기록한 보기 전용 아카이브.
 지도 위 번호 핀이나 목록을 누르면 그 가게에서 찍은 사진이 열린다.
 
+## 화면
+
+| 화면 | 주소 | 내용 |
+|---|---|---|
+| 01 지도 | `/` | 카카오맵 + 가게 목록/미리보기 패널 |
+| 02 목록 | `/?view=index` | 인덱스 표 (소장번호·상호·분류·주소·점수) |
+| 03 전체 사진 | `/?view=sheet` | 40장 컨택트 시트 |
+| 기록 페이지 | `#/record/GD-2026-010` (`/02`를 붙이면 그 사진으로) | 큰 사진, 메타데이터, 관찰 기록, 이전·다음 |
+
+분류 필터는 `&cat=food|cafe|life|pub|snack`으로 URL에 남는다. `?edit`와 같이 써도 된다.
+
 - React + Vite + Tailwind CSS (JavaScript)
 - 지도: 카카오맵(react-kakao-maps-sdk). 키가 없거나 로드에 실패하면 Leaflet + OpenStreetMap으로 자동 폴백
 - 배포: Vercel (정적 사이트). 서버·DB는 아직 없음
@@ -18,8 +29,9 @@ gandong-street-archive/
 │  │  └─ geocode.js        ← npm run geocode (개발용 좌표 조회)
 │  └─ src/
 │     ├─ data/stores.js    ← 가게 데이터 (이름, 주소, 사진 수, 좌표)
-│     ├─ data/site.js      ← 사이트 제목·소개 문구
-│     └─ components/       ← MapView, StoreList, StoreDetail, Lightbox
+│     ├─ data/site.js      ← 탑바·제목·소개·콜로폰 문구
+│     ├─ route.js          ← 탭·필터(쿼리)와 기록 페이지(해시) 상태
+│     └─ components/       ← 지도, 목록 패널, 인덱스 표, 컨택트 시트, 기록 페이지, 라이트박스
 └─ README.md
 ```
 
@@ -57,6 +69,7 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 ## 내용 고치기
 
 - **문구**: `client/src/data/site.js`
+- **관찰 기록**: `stores.js` 각 가게의 `memo` (비어 있으면 기록 페이지에서 숨김)
 - **사진 추가**: `client/public/photos/`에 `번호_slug_순번.jpg` 규칙으로 넣고 `stores.js`의 `photoCount`만 고친 뒤 `npm run check:photos`로 확인
 - **가게 추가·수정**: `client/src/data/stores.js`. `slug`는 사진 파일명에 쓰인 이름 (예: `무래이커피 (MOORAEE COFFEE)` → `무래이커피`)
 

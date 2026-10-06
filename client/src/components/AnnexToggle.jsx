@@ -5,7 +5,7 @@ export default function AnnexToggle({ annex, viewing, onGo, onBack }) {
     <button
       type="button"
       onClick={viewing ? onBack : onGo}
-      className="absolute right-2.5 top-2.5 z-[1000] border border-black bg-white px-2.5 py-1.5 font-mono text-[11px] leading-none tracking-tight hover:bg-[#eee]"
+      className="absolute right-2.5 top-2.5 z-[1000] border border-ink bg-card px-2.5 py-1.5 font-mono text-[11px] leading-none tracking-tight hover:bg-paper"
     >
       {viewing ? '[← 상점가로 돌아가기]' : `[별관 ↗ ${annex.name}]`}
     </button>

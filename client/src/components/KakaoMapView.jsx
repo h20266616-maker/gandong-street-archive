@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Map, MapMarker, Polyline, useKakaoLoader } from 'react-kakao-maps-sdk'
 import { MAP_CENTER, hasCoords, pinsFor, streetStores } from '../data/stores.js'
 import AnnexToggle from './AnnexToggle.jsx'
@@ -12,38 +12,30 @@ const svgImage = (svg, width, height) => ({
   options: { offset: { x: width / 2, y: height / 2 } },
 })
 
-const FONT = 'font-family="Pretendard Variable, Pretendard, sans-serif" font-weight="700"'
+const INK = '#1E1E1C'
+const ACCENT = '#E0705D'
+const FONT = 'font-family="IBM Plex Mono, ui-monospace, Consolas, monospace" font-weight="600"'
 
-// 번호 핀: 검은 원 + 흰 숫자, 선택되면 흰 원 + 검은 숫자로 살짝 크게. (MapMarker는 드래그가 되므로 SVG 이미지로 그린다)
-const pinImage = (id, { active, unplaced }) => {
-  const size = active ? 34 : 26
-  const c = size / 2
-  const fill = active ? '#fff' : unplaced ? '#888' : '#000'
-  const text = active ? '#000' : '#fff'
-  const stroke = active ? '#000' : '#fff'
-  return svgImage(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">` +
-      `<circle cx="${c}" cy="${c}" r="${c - 1}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>` +
-      `<text x="${c}" y="${c}" dy="0.36em" text-anchor="middle" fill="${text}" font-size="${active ? 14 : 11}" ${FONT}>${Number(id)}</text></svg>`,
-    size,
-    size,
-  )
-}
-
-// 별관 핀: 점선 테두리 라벨 "01 별관". 선택되면 반전되고 살짝 크게
-const annexImage = (id, { active }) => {
-  const w = active ? 64 : 54
-  const h = active ? 26 : 22
+// 모노 번호 사각 라벨: 흰 배경 + 검은 1px 테두리, 선택·hover 시 코랄. 별관은 점선 테두리 "01 별관"
+// (MapMarker는 드래그가 되므로 SVG 이미지로 그린다)
+const pinImage = (s, { on, unplaced }) => {
+  const label = s.annex ? `${s.id} 별관` : s.id
+  const w = s.annex ? 54 : 26
+  const h = 20
+  const fill = on ? ACCENT : unplaced ? '#85827B' : '#fff'
+  const stroke = on ? ACCENT : INK
+  const text = on || unplaced ? '#fff' : INK
   return svgImage(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-      `<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" fill="${active ? '#000' : '#fff'}" stroke="#000" stroke-width="1" stroke-dasharray="3 2"/>` +
-      `<text x="${w / 2}" y="${h / 2}" dy="0.36em" text-anchor="middle" fill="${active ? '#fff' : '#000'}" font-size="${active ? 13 : 11}" ${FONT}>${id} 별관</text></svg>`,
+      `<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" fill="${fill}" stroke="${stroke}" stroke-width="1"${s.annex ? ' stroke-dasharray="3 2"' : ''}/>` +
+      `<text x="${w / 2}" y="${h / 2}" dy="0.35em" text-anchor="middle" fill="${text}" font-size="11" ${FONT}>${label}</text></svg>`,
     w,
     h,
   )
 }
 
-export default function KakaoMapView({ appKey, stores, selectedId, onSelect, editMode, onMove, onLoadError }) {
+export default function KakaoMapView({ appKey, stores, activeIds, selectedId, onSelect, editMode, onMove, onLoadError }) {
+  const [hoverId, setHoverId] = useState(null)
   const [loading, error] = useKakaoLoader({ appkey: appKey })
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -109,22 +101,22 @@ export default function KakaoMapView({ appKey, stores, selectedId, onSelect, edi
 
   if (error) return null
   if (loading) {
-    return <div className="flex h-full w-full items-center justify-center bg-[#eee] text-xs text-[#888]">지도를 불러오는 중…</div>
+    return <div className="flex h-full w-full items-center justify-center bg-line text-xs text-pencil">지도를 불러오는 중…</div>
   }
 
   return (
     <div ref={containerRef} className="kakao-map-bw relative h-full w-full">
       {/* 카카오 기본 줌 컨트롤은 파란색이라 흑백 톤에 맞춘 버튼을 직접 둔다 */}
-      <div className="absolute left-2.5 top-2.5 z-10 flex flex-col border border-black bg-white">
-        <button type="button" aria-label="확대" onClick={() => zoomBy(-1)} className="h-8 w-8 border-b border-black text-lg leading-none hover:bg-[#eee]">+</button>
-        <button type="button" aria-label="축소" onClick={() => zoomBy(1)} className="h-8 w-8 text-lg leading-none hover:bg-[#eee]">−</button>
+      <div className="absolute left-2.5 top-2.5 z-10 flex flex-col border border-ink bg-card">
+        <button type="button" aria-label="확대" onClick={() => zoomBy(-1)} className="h-8 w-8 border-b border-ink text-lg leading-none hover:bg-paper">+</button>
+        <button type="button" aria-label="축소" onClick={() => zoomBy(1)} className="h-8 w-8 text-lg leading-none hover:bg-paper">−</button>
       </div>
       <AnnexToggle annex={annex} viewing={Boolean(selected?.annex)} onGo={() => onSelect(annex.id)} onBack={backToStreet} />
       <Map center={{ lat: MAP_CENTER[0], lng: MAP_CENTER[1] }} level={3} style={{ width: '100%', height: '100%' }} onCreate={handleCreate}>
         <Polyline
           path={street.map((s) => ({ lat: s.lat, lng: s.lng }))}
           strokeWeight={2}
-          strokeColor="#000"
+          strokeColor={INK}
           strokeOpacity={0.8}
           strokeStyle="shortdot"
         />
@@ -132,12 +124,15 @@ export default function KakaoMapView({ appKey, stores, selectedId, onSelect, edi
           <MapMarker
             key={s.id}
             position={{ lat: s.lat, lng: s.lng }}
-            image={s.annex ? annexImage(s.id, { active: s.id === selectedId }) : pinImage(s.id, { active: s.id === selectedId, unplaced: s.unplaced })}
+            image={pinImage(s, { on: s.id === selectedId || s.id === hoverId, unplaced: s.unplaced })}
+            opacity={!activeIds || activeIds.has(s.id) ? 1 : 0.2}
             zIndex={s.id === selectedId ? 10 : 1}
             title={s.name}
             clickable
             draggable={editMode}
             onClick={() => onSelect(s.id)}
+            onMouseOver={() => setHoverId(s.id)}
+            onMouseOut={() => setHoverId((id) => (id === s.id ? null : id))}
             onDragEnd={(marker) => {
               const p = marker.getPosition()
               onMove(s.id, p.getLat(), p.getLng())
