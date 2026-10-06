@@ -11,8 +11,9 @@
 - 사진 더미: 맨 앞 카드 클릭·스페이스·스와이프로 다음 사진, 뒤 카드를 누르면 그 카드가 앞으로. 핀과 더미는 점선으로 이어진다
 - 전체 사진: 2단으로 원본 비율·원본 색 그대로. 누르면 라이트박스
 - 별관(식물의정석)은 지도에 그리지 않고, 고르면 왼쪽 위에 `← 서쪽 3km, 유촌리`가 뜬다
+- MT 장소 3곳(A 숙소, B·C MT 장소)은 검은 사각 배지로 그린다. `MT 장소` 칩을 누르면 상점가와 세 곳이 한 화면에 들어오는 전체 보기(`?view=mt`)가 되고, 배지를 누르면 그곳으로 간다
 - 키보드: ←/→ 이전·다음 가게(분류 안에서), 스페이스 다음 사진, Enter 전체 사진, ESC 닫기
-- 링크: 현재 가게가 `?shop=08`처럼 주소에 남는다. 처음엔 08 간동우체국
+- 링크: 현재 가게가 `?shop=08`, MT 장소는 `?shop=A`처럼 주소에 남는다. 처음엔 08 간동우체국
 - 700px 이하에서는 지도가 위, 사진 더미가 아래 가운데
 - UI는 흑백만 쓰고, 사진에는 어떤 필터도 걸지 않는다
 
@@ -29,6 +30,7 @@ gandong-street-archive/
 │  │  └─ geocode.js        ← npm run geocode (개발용 좌표 조회)
 │  └─ src/
 │     ├─ data/stores.js    ← 가게 데이터 (이름, 주소, 사진 수, 좌표)
+│     ├─ data/mtPlaces.js  ← MT 장소 3곳 (숙소·MT 장소)
 │     ├─ data/site.js      ← 머리 바 문구
 │     ├─ iso.js            ← 3D 지도 계산 (좌표 변환, 길·건물, 투영)
 │     └─ components/       ← IsoMap, PhotoStack, AllPhotos, Lightbox, EditMap(?edit)
@@ -71,6 +73,7 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 - **문구**: `client/src/data/site.js`
 - **한 줄 기록**: `stores.js` 각 가게의 `memo`. 사진 더미 아래 정보에 한 줄로 나오고, 비어 있으면 숨김
 - **분류**: `stores.js`의 `cat`과 `categories` (칩 이름)
+- **MT 장소 사진**: `client/public/photos/mt/`에 `A_월남파병용사만남의장_1.jpg`처럼 넣고 `mtPlaces.js`의 `photoCount`만 고친다. 0장이면 `사진 준비 중` 카드가 나온다
 - **사진 추가**: `client/public/photos/`에 `번호_slug_순번.jpg` 규칙으로 넣고 `stores.js`의 `photoCount`만 고친 뒤 `npm run check:photos`로 확인
 - **가게 추가·수정**: `client/src/data/stores.js`. `slug`는 사진 파일명에 쓰인 이름 (예: `무래이커피 (MOORAEE COFFEE)` → `무래이커피`)
 
@@ -79,7 +82,9 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 1. `npm run dev` 후 `http://localhost:5173/?edit` 접속
 2. 핀을 드래그해서 실제 위치에 놓는다. 좌표가 없는 가게는 회색 핀으로 나온다
 3. 놓을 때마다 화면 아래 검은 칸과 브라우저 콘솔에 `export const stores = [...]`가 출력된다
-4. `stores.js`의 `stores` 배열을 그 내용으로 교체
+4. `stores.js`의 `stores` 배열, `mtPlaces.js`의 `mtPlaces` 배열을 그 내용으로 교체
+
+MT 장소는 상점가에서 멀어서 첫 화면 밖에 있다. 지도 왼쪽 위 `A · B · C` 버튼으로 옮겨 가서 끈다.
 
 `?edit`가 없는 일반 방문자에게는 드래그·출력 UI가 보이지 않는다.
 

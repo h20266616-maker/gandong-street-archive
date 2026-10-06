@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { photoUrls } from '../data/stores.js'
 
 const VISIBLE = 5
 const EASE = 'cubic-bezier(.2,.75,.2,1)'
@@ -8,10 +7,10 @@ const ENTER = 'translate3d(-80px,40px,-320px) rotateY(-40deg)'
 const LEAVE = 'translate3d(-120px,60px,140px) rotateY(10deg)'
 const LEAVE_MS = 420
 
-// 한 가게의 사진 더미. 가게가 바뀌면 부모가 key로 새로 만들어서 카드가 날아 들어온다.
-// index = 맨 앞 사진. 다음 사진으로 넘기면 맨 앞 카드가 빠지며 사라지고, 맨 뒤로 순환한다
-export default function PhotoStack({ store, index, onIndex, onNext, onPrev, frontRef }) {
-  const photos = photoUrls(store)
+// 한 곳의 사진 더미. 가게가 바뀌면 부모가 key로 새로 만들어서 카드가 날아 들어온다.
+// index = 맨 앞 사진. 다음 사진으로 넘기면 맨 앞 카드가 빠지며 사라지고, 맨 뒤로 순환한다.
+// 사진이 아직 없으면 흰 카드 한 장 '사진 준비 중'
+export default function PhotoStack({ name, photos, index, onIndex, onNext, onPrev, frontRef }) {
   const n = photos.length
   const [entered, setEntered] = useState(false)
   const [leaving, setLeaving] = useState(null)
@@ -65,6 +64,19 @@ export default function PhotoStack({ store, index, onIndex, onNext, onPrev, fron
         if (Math.abs(dx) > 40) (dx < 0 ? onNext : onPrev)()
       }}
     >
+      {n === 0 && (
+        <div
+          ref={frontRef}
+          className="absolute inset-0 flex items-center justify-center border border-black bg-white text-sm text-[#888]"
+          style={{
+            transform: entered ? slot(0) : ENTER,
+            opacity: entered ? 1 : 0,
+            transition: entered ? `transform .6s ${EASE}, opacity .6s ${EASE}` : 'none',
+          }}
+        >
+          사진 준비 중
+        </div>
+      )}
       {photos.map((src, i) => {
         const d = (i - index + n) % n
         let transform = slot(Math.min(d, VISIBLE))
@@ -102,7 +114,7 @@ export default function PhotoStack({ store, index, onIndex, onNext, onPrev, fron
               pointerEvents: d < VISIBLE ? 'auto' : 'none',
             }}
           >
-            <img src={src} alt={`${store.name} ${i + 1}`} draggable={false} className="block h-full w-full object-cover" />
+            <img src={src} alt={`${name} ${i + 1}`} draggable={false} className="block h-full w-full object-cover" />
           </button>
         )
       })}

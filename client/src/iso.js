@@ -3,15 +3,20 @@
 
 const M_PER_DEG_LAT = 110574
 
-export function makeWorld(stores) {
+export function makeWorld(stores, mtPlaces = []) {
   const street = stores.filter((s) => !s.annex && s.lat != null)
-  const lat0 = street.reduce((a, s) => a + s.lat, 0) / street.length
-  const lng0 = street.reduce((a, s) => a + s.lng, 0) / street.length
+  // 평면 좌표 기준점: 상점가 가운데쯤인 06 무래이커피
+  const origin = street.find((s) => s.id === '06') ?? street[0]
+  const lat0 = origin.lat
+  const lng0 = origin.lng
   const mPerDegLng = 111320 * Math.cos((lat0 * Math.PI) / 180)
   const toXY = (lat, lng) => [(lng - lng0) * mPerDegLng, -(lat - lat0) * M_PER_DEG_LAT]
 
   // 간척월명로 중심선: 상점가 가게 좌표에 맞춘 직선 (주성분 방향)
-  const pts = street.map((s) => toXY(s.lat, s.lng))
+  const raw = street.map((s) => toXY(s.lat, s.lng))
+  const mx = raw.reduce((a, p) => a + p[0], 0) / raw.length
+  const my = raw.reduce((a, p) => a + p[1], 0) / raw.length
+  const pts = raw.map(([x, y]) => [x - mx, y - my])
   let sxx = 0
   let syy = 0
   let sxy = 0
@@ -24,12 +29,12 @@ export function makeWorld(stores) {
   let u = [Math.cos(ang), Math.sin(ang)]
   if (u[1] > 0) u = [-u[0], -u[1]] // 남→북 방향
   const n = [-u[1], u[0]]
-  const along = (p) => p[0] * u[0] + p[1] * u[1]
-  const across = (p) => p[0] * n[0] + p[1] * n[1]
-  const ts = pts.map(along)
+  const along = (p) => (p[0] - mx) * u[0] + (p[1] - my) * u[1]
+  const across = (p) => (p[0] - mx) * n[0] + (p[1] - my) * n[1]
+  const ts = raw.map(along)
   const tMin = Math.min(...ts) - 30
   const tMax = Math.max(...ts) + 30
-  const at = (t, d = 0) => [u[0] * t + n[0] * d, u[1] * t + n[1] * d]
+  const at = (t, d = 0) => [mx + u[0] * t + n[0] * d, my + u[1] * t + n[1] * d]
 
   const ROAD_HALF = 4
   const road = {
@@ -76,7 +81,7 @@ export function makeWorld(stores) {
     })
   const decor = []
   for (let i = 0; i < 400 && decor.length < 34; i++) {
-    const p = [(rand() - 0.5) * 240, (rand() - 0.5) * 240]
+    const p = [mx + (rand() - 0.5) * 240, my + (rand() - 0.5) * 240]
     const t = along(p)
     const d = across(p)
     if (Math.abs(d) < 15 && t > tMin - 6 && t < tMax + 6) continue
@@ -86,7 +91,33 @@ export function makeWorld(stores) {
     decor.push({ pos: p, half: [2.5 + rand() * 3, 2.5 + rand() * 3], height: 3 + rand() * 6, axes: [u, n] })
   }
 
-  return { toXY, road, sideRoads, shops, decor, roadDir: u }
+  // MT 장소: 얇은 검은 판 위에 막대와 사각 배지. 상점가에서 이어지는 길은 방향만 맞춘 직선
+  const segRoad = (a, b, half = 2.4) => {
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+    const nn = [-(b[1] - a[1]) / len, (b[0] - a[0]) / len]
+    const off = (p, o) => [p[0] + nn[0] * o, p[1] + nn[1] * o]
+    return { poly: [off(a, -half), off(b, -half), off(b, half), off(a, half)], center: [a, b] }
+  }
+  const sideEnd = (r) => [r.origin[0] + r.d[0] * r.to, r.origin[1] + r.d[1] * r.to]
+  const mts = mtPlaces.map((p) => ({ id: p.id, pos: toXY(p.lat, p.lng), half: [6, 6], height: 0.8, axes: [u, n] }))
+  const mtRoads = mts.map((m) => {
+    // 가장 가까운 출발점: 간척월명로 남쪽 끝·북쪽 끝, 옆길 끝
+    const starts = [at(tMin), at(tMax), ...sideRoads.map(sideEnd)]
+    const from = starts.reduce((best, q) => (Math.hypot(q[0] - m.pos[0], q[1] - m.pos[1]) < Math.hypot(best[0] - m.pos[0], best[1] - m.pos[1]) ? q : best))
+    return segRoad(from, m.pos)
+  })
+
+  // 바닥 격자 범위: 상점가와 MT 장소를 모두 덮게
+  const all = [...shops.map((b) => b.pos), ...mts.map((b) => b.pos)]
+  const pad = 160
+  const bounds = {
+    minX: Math.min(...all.map((p) => p[0])) - pad,
+    maxX: Math.max(...all.map((p) => p[0])) + pad,
+    minY: Math.min(...all.map((p) => p[1])) - pad,
+    maxY: Math.max(...all.map((p) => p[1])) + pad,
+  }
+
+  return { toXY, road, sideRoads, shops, decor, mts, mtRoads, bounds, roadDir: u }
 }
 
 // 카메라: 기준점(focus)을 화면의 (cx, cy)에 두고 θ만큼 돌린 뒤 투영
@@ -139,6 +170,17 @@ export function boxFaces(box, proj) {
   }
   const roof = base.map(([x, y]) => proj.project(x, y, box.height))
   return { sides: faces, roof }
+}
+
+// 화면 좌표(cx, cy 기준, 1 = 1m·scale)를 평면 좌표로 되돌린다 (카메라 맞추기용)
+export function unproject({ theta, fx, fy }, ux, uy) {
+  const a = ux / 0.866 // rx - ry
+  const b = uy / 0.5 // rx + ry
+  const rx = (a + b) / 2
+  const ry = (b - a) / 2
+  const c = Math.cos(theta)
+  const s = Math.sin(theta)
+  return [fx + rx * c + ry * s, fy - rx * s + ry * c]
 }
 
 export const toPoints = (pts) => pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')

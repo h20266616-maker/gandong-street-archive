@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { photoUrls, shortAddress } from '../data/stores.js'
-
-export default function Lightbox({ store, index, onIndexChange, onClose }) {
-  const photos = photoUrls(store)
+// title 예: "10 남가식당 — 간척월명로 311-1"
+export default function Lightbox({ title, name, photos, index, onIndexChange, onClose }) {
   const total = photos.length
   const touchX = useRef(null)
 
@@ -24,7 +22,7 @@ export default function Lightbox({ store, index, onIndexChange, onClose }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`${store.name} 사진`}
+      aria-label={`${name} 사진`}
       className="fixed inset-0 z-[2000] flex flex-col bg-black text-white"
       onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
       onTouchEnd={(e) => {
@@ -36,7 +34,7 @@ export default function Lightbox({ store, index, onIndexChange, onClose }) {
     >
       <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm wide:px-6">
         <p className="min-w-0 truncate">
-          {store.id} {store.name} — {shortAddress(store)}
+          {title}
         </p>
         <button type="button" onClick={onClose} className={`shrink-0 ${link}`}>
           닫기
@@ -44,7 +42,7 @@ export default function Lightbox({ store, index, onIndexChange, onClose }) {
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center px-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
-        <img key={photos[index]} src={photos[index]} alt={`${store.name} ${index + 1}`} draggable={false} className="max-h-full max-w-full select-none object-contain" />
+        <img key={photos[index]} src={photos[index]} alt={`${name} ${index + 1}`} draggable={false} className="max-h-full max-w-full select-none object-contain" />
       </div>
 
       <div className="flex items-center justify-center gap-3 px-4 py-4 text-sm">
