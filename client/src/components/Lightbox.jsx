@@ -34,7 +34,7 @@ export default function Lightbox({ store, index, onIndexChange, onClose }) {
         if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1)
       }}
     >
-      <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm desk:px-6">
+      <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm wide:px-6">
         <p className="min-w-0 truncate">
           {store.id} {store.name} — {shortAddress(store)}
         </p>

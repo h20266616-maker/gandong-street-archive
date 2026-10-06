@@ -1,21 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { neighbors, stores as initialStores } from './data/stores.js'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { categories, distanceShort, filterByCat, listOrder, neighbors, shortAddress, stores as initialStores } from './data/stores.js'
 import { site } from './data/site.js'
-import KakaoMapView from './components/KakaoMapView.jsx'
-import MapView from './components/MapView.jsx'
-import StoreList from './components/StoreList.jsx'
-import StoreDetail from './components/StoreDetail.jsx'
+import { makeWorld } from './iso.js'
+import IsoMap from './components/IsoMap.jsx'
+import PhotoStack from './components/PhotoStack.jsx'
+import AllPhotos from './components/AllPhotos.jsx'
 import Lightbox from './components/Lightbox.jsx'
+import EditMap from './components/EditMap.jsx'
 
-// URL에 ?edit 가 있을 때만 핀 드래그 + 좌표 출력
-const isEditMode = new URLSearchParams(window.location.search).has('edit')
-
-// 카카오 키가 있으면 카카오맵, 없거나 로드에 실패하면(도메인 미등록 등) OpenStreetMap으로 폴백
+const params = new URLSearchParams(window.location.search)
+// URL에 ?edit 가 있을 때만 카카오맵 핀 드래그 + 좌표 출력
+const isEditMode = params.has('edit')
 const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY
-
-const DESK_QUERY = '(min-width: 861px)'
-// 핀 hover 미리보기는 마우스가 있는 데스크톱에서만
-const PREVIEW_QUERY = `${DESK_QUERY} and (hover: hover)`
+const DEFAULT_SHOP = '08'
 
 function useMedia(query) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -32,54 +29,79 @@ function useMedia(query) {
 const toStoresSource = (list) =>
   'export const stores = [\n' + list.map((s) => `  ${JSON.stringify(s)},`).join('\n') + '\n]'
 
+// 별관 안내: "← 서쪽 3km, 유촌리"
+const annexLabel = (s) => {
+  const dir = s.distanceNote?.match(/([동서남북])쪽/)?.[1]
+  const village = s.address.match(/(\S+리)/)?.[1]
+  return `← ${[dir && `${dir}쪽`, distanceShort(s)].filter(Boolean).join(' ')}${village ? `, ${village}` : ''}`
+}
+
+const link = 'underline underline-offset-4 hover:no-underline'
+
 export default function App() {
   const [stores, setStores] = useState(initialStores)
-  const [selectedId, setSelectedId] = useState(null)
-  const [hover, setHover] = useState(null) // { id, from: 'map' | 'list' }
-  const [lightbox, setLightbox] = useState(null) // { storeId, index }
-  const [kakaoFailed, setKakaoFailed] = useState(false)
-  const panelRef = useRef(null)
-  const mapBoxRef = useRef(null)
-  const isDesk = useMedia(DESK_QUERY)
-  const canPreview = useMedia(PREVIEW_QUERY)
+  const [shopId, setShopId] = useState(() => (initialStores.some((s) => s.id === params.get('shop')) ? params.get('shop') : DEFAULT_SHOP))
+  const [photo, setPhoto] = useState(0)
+  const [cat, setCat] = useState('all')
+  const [allOpen, setAllOpen] = useState(false)
+  const [lightbox, setLightbox] = useState(null) // 사진 번호
+  const frontRef = useRef(null)
+  const isMobile = useMedia('(max-width: 700px)')
 
-  const useKakao = Boolean(KAKAO_MAP_KEY) && !kakaoFailed
-  const handleKakaoError = useCallback(() => setKakaoFailed(true), [])
-  const handleHover = useCallback(
-    (id, from) => setHover((cur) => (id ? (cur?.id === id && cur?.from === from ? cur : { id, from }) : null)),
-    [],
-  )
-  // hover 끝: 지금 hover 중인 것이 자기일 때만 비운다. 핀→행으로 옮길 때 행의 enter가 핀의 leave보다 먼저 오기 때문
-  const handleLeave = useCallback((id) => setHover((cur) => (cur?.id === id ? null : cur)), [])
+  const world = useMemo(() => makeWorld(initialStores), [])
+  const filtered = useMemo(() => filterByCat(stores, cat), [stores, cat])
+  const activeIds = useMemo(() => new Set(filtered.map((s) => s.id)), [filtered])
+  const store = stores.find((s) => s.id === shopId)
+  const n = store.photoCount
+  const { prev, next } = neighbors(activeIds.has(store.id) ? filtered : stores, store)
 
-  const selected = stores.find((s) => s.id === selectedId) ?? null
-  const { prev, next } = selected ? neighbors(stores, selected) : {}
-  const photoTotal = stores.reduce((n, s) => n + s.photoCount, 0)
+  // 현재 가게를 ?shop=08 로 남긴다 (다른 파라미터는 그대로)
+  useEffect(() => {
+    if (isEditMode) return
+    const q = new URLSearchParams(window.location.search)
+    q.set('shop', shopId)
+    history.replaceState(history.state, '', `${window.location.pathname}?${q}`)
+  }, [shopId])
 
-  // 고르면 패널을 맨 위로. 모바일에서는 지도 바로 아래에 패널 시작이 오게 페이지를 옮긴다
-  const select = (id) => {
-    setSelectedId(id)
-    setHover(null)
-    if (isDesk) {
-      panelRef.current?.scrollTo({ top: 0 })
-    } else if (panelRef.current && mapBoxRef.current) {
-      const y = panelRef.current.getBoundingClientRect().top + window.scrollY - mapBoxRef.current.offsetHeight
-      window.scrollTo({ top: Math.max(0, y) })
-    }
+  const select = useCallback((id) => {
+    setShopId(id)
+    setPhoto(0)
+  }, [])
+  const nextPhoto = useCallback(() => setPhoto((i) => (i + 1) % n), [n])
+  const prevPhoto = useCallback(() => setPhoto((i) => (i - 1 + n) % n), [n])
+
+  // 핀: 다른 가게면 고르고, 이미 고른 가게면 다음 사진
+  const pick = useCallback((id) => (id === shopId ? nextPhoto() : select(id)), [shopId, nextPhoto, select])
+
+  const chooseCat = (key) => {
+    setCat(key)
+    const inCat = listOrder(filterByCat(stores, key))
+    if (inCat.length && !inCat.some((s) => s.id === shopId)) select(inCat[0].id)
   }
 
-  // 상세에서 ←/→ 이전·다음 가게, ESC 목록. 라이트박스가 열려 있으면 라이트박스가 처리한다
+  // 키보드: ←/→ 이전·다음 가게(필터 안에서), 스페이스 다음 사진, Enter 전체 사진, ESC 닫기
   useEffect(() => {
-    if (!selected || lightbox) return undefined
+    if (isEditMode) return undefined
     const onKey = (e) => {
-      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return
-      if (e.key === 'Escape') select(null)
-      else if (e.key === 'ArrowLeft' && prev) select(prev.id)
+      if (lightbox != null) return // 라이트박스가 직접 처리
+      if (allOpen) {
+        if (e.key === 'Escape') setAllOpen(false)
+        return
+      }
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea')) return
+      if (e.key === 'ArrowLeft' && prev) select(prev.id)
       else if (e.key === 'ArrowRight' && next) select(next.id)
+      else if (e.key === ' ') {
+        e.preventDefault()
+        nextPhoto()
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        setAllOpen(true)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  })
+  }, [lightbox, allOpen, prev, next, select, nextPhoto])
 
   const moveStore = (id, lat, lng) => {
     const moved = stores.map((s) => (s.id === id ? { ...s, lat: +lat.toFixed(6), lng: +lng.toFixed(6) } : s))
@@ -87,51 +109,21 @@ export default function App() {
     console.log(toStoresSource(moved))
   }
 
-  const mapProps = {
-    stores,
-    selectedId,
-    hoverId: hover?.id ?? null,
-    previewId: canPreview && hover?.from === 'map' ? hover.id : null,
-    onHover: handleHover,
-    onLeave: handleLeave,
-    onSelect: select,
-    editMode: isEditMode,
-    onMove: moveStore,
-  }
+  const header = (
+    <header className="flex shrink-0 flex-col gap-0.5 border-b border-black px-4 py-3 wide:flex-row wide:items-baseline wide:justify-between wide:gap-6 wide:px-6">
+      <h1 className="text-[22px] font-bold leading-tight">{site.title}</h1>
+      <p className="truncate text-xs text-[#888]">{site.meta.join(' · ')}</p>
+    </header>
+  )
 
-  return (
-    <div className={`desk:flex desk:h-dvh desk:flex-col ${isEditMode ? 'edit-mode' : ''}`}>
-      <header className="border-b border-black px-4 py-3 desk:flex desk:h-12 desk:shrink-0 desk:items-center desk:justify-between desk:gap-6 desk:px-5 desk:py-0">
-        <h1 className="text-xl font-bold leading-tight">{site.title}</h1>
-        <p className="mt-0.5 text-xs text-[#888] desk:mt-0 desk:truncate">
-          {[...site.meta, `가게 ${stores.length}곳, 사진 ${photoTotal}장`].join(' · ')}
-        </p>
-      </header>
-
-      <div className="desk:grid desk:min-h-0 desk:flex-1 desk:grid-cols-[minmax(0,1fr)_420px]">
-        <div ref={mapBoxRef} className="sticky top-0 z-20 h-[52vh] border-b border-black bg-white desk:static desk:h-auto desk:border-b-0 desk:border-r">
-          {useKakao ? <KakaoMapView appKey={KAKAO_MAP_KEY} onLoadError={handleKakaoError} {...mapProps} /> : <MapView {...mapProps} />}
+  if (isEditMode) {
+    return (
+      <div className="flex h-dvh flex-col">
+        {header}
+        <div className="min-h-0 flex-1">
+          {KAKAO_MAP_KEY ? <EditMap appKey={KAKAO_MAP_KEY} stores={stores} onMove={moveStore} /> : <p className="p-4 text-sm">client/.env에 VITE_KAKAO_MAP_KEY가 없다.</p>}
         </div>
-
-        <main ref={panelRef} className="min-w-0 desk:overflow-y-auto">
-          {selected ? (
-            <StoreDetail
-              store={selected}
-              prev={prev}
-              next={next}
-              stickyTop={isDesk ? 0 : '52vh'}
-              onBack={() => select(null)}
-              onOpenPhoto={(index) => setLightbox({ storeId: selected.id, index })}
-              onGo={(s) => select(s.id)}
-            />
-          ) : (
-            <StoreList stores={stores} hoverId={hover?.id ?? null} onHover={handleHover} onLeave={handleLeave} onSelect={select} />
-          )}
-        </main>
-      </div>
-
-      {isEditMode && (
-        <section className="fixed bottom-0 left-0 z-[1500] w-full border-t border-black bg-black p-3 text-white desk:w-[calc(100%-420px)]">
+        <section className="shrink-0 border-t border-black bg-black p-3 text-white">
           <p className="mb-2 text-xs font-semibold">편집 모드 — 핀을 드래그해 놓으면 아래 내용이 바뀐다. src/data/stores.js의 stores 배열을 이걸로 교체.</p>
           <textarea
             readOnly
@@ -140,16 +132,75 @@ export default function App() {
             className="h-40 w-full resize-y border border-[#888] bg-black p-2 font-[inherit] text-[11px] leading-snug text-white"
           />
         </section>
-      )}
+      </div>
+    )
+  }
 
-      {lightbox && (
-        <Lightbox
-          store={stores.find((s) => s.id === lightbox.storeId)}
-          index={lightbox.index}
-          onIndexChange={(index) => setLightbox((lb) => ({ ...lb, index }))}
-          onClose={() => setLightbox(null)}
-        />
-      )}
+  return (
+    <div className="flex h-dvh flex-col overflow-hidden">
+      {header}
+
+      <nav aria-label="분류" className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-black px-4 py-2.5 wide:px-6">
+        {[{ key: 'all', label: '전체' }, ...categories].map((c) => (
+          <button
+            key={c.key}
+            type="button"
+            aria-pressed={cat === c.key}
+            onClick={() => chooseCat(c.key)}
+            className={`shrink-0 whitespace-nowrap border border-black px-3 py-1 text-[13px] ${cat === c.key ? 'bg-black text-white' : 'bg-white hover:bg-black hover:text-white'}`}
+          >
+            {c.label}
+          </button>
+        ))}
+      </nav>
+
+      <main className="relative min-h-0 flex-1 overflow-hidden">
+        <IsoMap world={world} selectedId={shopId} activeIds={activeIds} isMobile={isMobile} anchorRef={frontRef} kickKey={`${shopId}:${photo}`} onPick={pick} />
+
+        {store.annex && (
+          <button
+            type="button"
+            onClick={() => select(listOrder(stores)[0].id)}
+            className="absolute left-4 top-4 z-20 border border-black bg-white px-3 py-2 text-[13px] font-semibold hover:bg-black hover:text-white"
+          >
+            {annexLabel(store)}
+          </button>
+        )}
+
+        <div className="stack-wrap">
+          <PhotoStack key={store.id} store={store} index={photo} onIndex={setPhoto} onNext={nextPhoto} onPrev={prevPhoto} frontRef={frontRef} />
+          <p className="mt-3 text-[11px] text-[#888]">
+            {photo + 1} / {n}
+          </p>
+        </div>
+
+        <section className="stack-info bg-white/85 py-1 wide:py-2">
+          <p className="text-xs text-[#888]">{store.id}</p>
+          <h2 className="truncate text-[24px] font-bold leading-tight wide:text-[30px]">{store.name}</h2>
+          <p className="truncate text-[13px] text-[#333]">{[store.type, shortAddress(store), `사진 ${n}장`].join(' · ')}</p>
+          {store.memo && <p className="mt-1 truncate text-[13px]">{store.memo}</p>}
+          <p className="mt-2 flex flex-wrap gap-x-2 text-[13px]">
+            <button type="button" onClick={nextPhoto} className={link}>
+              다음 사진
+            </button>
+            <span aria-hidden>·</span>
+            <button type="button" onClick={() => setAllOpen(true)} className={link}>
+              전체 사진
+            </button>
+            {next && (
+              <>
+                <span aria-hidden>·</span>
+                <button type="button" onClick={() => select(next.id)} className={link}>
+                  다음 가게 →
+                </button>
+              </>
+            )}
+          </p>
+        </section>
+      </main>
+
+      {allOpen && <AllPhotos store={store} onOpen={setLightbox} onClose={() => setAllOpen(false)} />}
+      {lightbox != null && <Lightbox store={store} index={lightbox} onIndexChange={setLightbox} onClose={() => setLightbox(null)} />}
     </div>
   )
 }
