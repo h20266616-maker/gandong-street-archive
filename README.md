@@ -56,7 +56,7 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 [Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → 앱 설정 → 플랫폼 → **Web 사이트 도메인**에 아래 주소를 등록해야 지도가 뜬다. 등록 안 된 주소에서는 OpenStreetMap 지도로 바뀐다.
 
 - `http://localhost:5173` (개발)
-- Vercel 배포 주소 (예: `https://gandong-street-archive.vercel.app`)
+- `https://gandong-street-archive.vercel.app` (운영, 아래 배포 섹션 참고)
 
 | 명령 | 설명 |
 |---|---|
@@ -88,12 +88,36 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 
 ## 배포 (Vercel)
 
-1. [Vercel](https://vercel.com) → **Add New… → Project** → GitHub의 `gandong-street-archive` 선택
+**운영 주소: https://gandong-street-archive.vercel.app**
+
+| 항목 | 값 |
+|---|---|
+| Vercel 프로젝트 | `gandong-street-archive` (h20266616-maker's projects) |
+| GitHub 연결 | `h20266616-maker/gandong-street-archive`, `main` 브랜치 → push하면 자동 운영 배포 |
+| Root Directory | `client` |
+| Framework / Build / Output | Vite / `npm run build` / `dist` |
+| 환경변수 | `VITE_KAKAO_MAP_KEY` (Production·Preview·Development, 타입 Config) |
+
+- Vite 환경변수는 **빌드할 때** 코드에 들어간다. 키를 바꾸면 반드시 다시 배포해야 한다.
+- 카카오 JavaScript 키는 원래 브라우저에 공개되는 키라 Config 타입으로 둔다. 보안은 아래 도메인 등록으로 제한된다.
+- CLI로 직접 배포할 때는 프로젝트 루트(`client` 바깥)에서 `npx vercel@latest --prod`. `.vercelignore`가 `.env`를 업로드에서 뺀다.
+
+### 처음부터 다시 만들 때
+
+1. Vercel → **Add New… → Project** → GitHub의 `gandong-street-archive` 선택
 2. **Root Directory: `client`** ← 이걸 빠뜨리면 빌드 실패
 3. Framework Preset: **Vite** / Build Command: `npm run build` / Output Directory: `dist`
-4. **Environment Variables**에 `VITE_KAKAO_MAP_KEY` = 카카오 JavaScript 키 추가
-5. **Deploy**. 이후 `main`에 push할 때마다 자동 배포된다
-6. 배포 주소를 Kakao Developers의 Web 사이트 도메인에 등록 (안 하면 배포 사이트에서는 OpenStreetMap 지도가 나온다)
+4. Environment Variables에 `VITE_KAKAO_MAP_KEY` 추가 → **Deploy**
+5. Settings → Domains에서 `gandong-street-archive.vercel.app` 추가
+
+### 카카오 도메인 등록
+
+[Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → (화천 앱과 같은 앱) → 앱 설정 → 플랫폼 → **Web → 사이트 도메인**에 아래 주소가 있어야 카카오맵이 뜬다. 없는 주소에서는 OpenStreetMap 지도로 자동 대체된다.
+
+- `https://gandong-street-archive.vercel.app` (운영)
+- `http://localhost:5173` (개발, 이미 등록됨)
+
+등록 후 반영까지 몇 분 걸릴 수 있다. 미등록이면 브라우저 콘솔에 `Failed to load Kakao Maps script`가 찍히고, SDK 요청이 `401 domain mismatched`로 거절된다.
 
 ## 작업 흐름
 
