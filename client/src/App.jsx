@@ -1,5 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { stores as initialStores } from './data/stores.js'
+import KakaoMapView from './components/KakaoMapView.jsx'
 import MapView from './components/MapView.jsx'
 import StoreList from './components/StoreList.jsx'
 import StoreDetail from './components/StoreDetail.jsx'
@@ -7,6 +8,9 @@ import Lightbox from './components/Lightbox.jsx'
 
 // URL에 ?edit 가 있을 때만 핀 드래그 + 좌표 출력
 const isEditMode = new URLSearchParams(window.location.search).has('edit')
+
+// 카카오 키가 있으면 카카오맵, 없거나 로드에 실패하면(도메인 미등록 등) OpenStreetMap으로 폴백
+const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY
 
 // stores.js의 배열 자리에 그대로 붙여넣을 수 있는 형태
 const toStoresSource = (list) =>
@@ -17,6 +21,9 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [lightbox, setLightbox] = useState(null) // { storeId, index }
   const panelRef = useRef(null)
+  const [kakaoFailed, setKakaoFailed] = useState(false)
+  const useKakao = Boolean(KAKAO_MAP_KEY) && !kakaoFailed
+  const handleKakaoError = useCallback(() => setKakaoFailed(true), [])
 
   const selected = useMemo(() => stores.find((s) => s.id === selectedId) ?? null, [stores, selectedId])
 
@@ -34,7 +41,19 @@ export default function App() {
   return (
     <div className={`flex h-dvh flex-col lg:flex-row ${isEditMode ? 'edit-mode' : ''}`}>
       <div className="relative h-[45dvh] shrink-0 border-b border-black lg:h-full lg:w-3/5 lg:border-b-0 lg:border-r">
-        <MapView stores={stores} selectedId={selectedId} onSelect={select} editMode={isEditMode} onMove={moveStore} />
+        {useKakao ? (
+          <KakaoMapView
+            appKey={KAKAO_MAP_KEY}
+            stores={stores}
+            selectedId={selectedId}
+            onSelect={select}
+            editMode={isEditMode}
+            onMove={moveStore}
+            onLoadError={handleKakaoError}
+          />
+        ) : (
+          <MapView stores={stores} selectedId={selectedId} onSelect={select} editMode={isEditMode} onMove={moveStore} />
+        )}
       </div>
 
       <main ref={panelRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden lg:w-2/5">

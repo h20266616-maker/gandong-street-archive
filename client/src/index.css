@@ -15,7 +15,8 @@ body {
 }
 
 /* 지도 타일은 흑백으로 — 색은 사진에서만 */
-.map-tiles-bw { filter: grayscale(1) contrast(1.05); }
+.map-tiles-bw,
+.kakao-map-bw img { filter: grayscale(1) contrast(1.05); }
 .leaflet-container { background: #eee; font-family: var(--font-sans); }
 .leaflet-control-attribution { font-size: 10px; background: rgba(255, 255, 255, 0.85) !important; }
 .leaflet-control-attribution a { color: #222; }

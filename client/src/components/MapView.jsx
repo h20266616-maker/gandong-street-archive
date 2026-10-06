@@ -1,9 +1,7 @@
 import { useEffect, useRef } from 'react'
 import L from 'leaflet'
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet'
-import { hasCoords } from '../data/stores.js'
-
-const FALLBACK_CENTER = [38.0546, 127.8173]
+import { MAP_CENTER as FALLBACK_CENTER, hasCoords, pinsFor } from '../data/stores.js'
 
 const pinIcon = (id, { active, unplaced }) =>
   L.divIcon({
@@ -36,19 +34,8 @@ function FlyToSelected({ store }) {
 }
 
 export default function MapView({ stores, selectedId, onSelect, editMode, onMove }) {
-  const placed = stores.filter(hasCoords)
-  const path = placed.map((s) => [s.lat, s.lng])
-
-  // 편집 모드에서는 좌표 없는 가게도 회색 핀으로 띄워서 옮길 수 있게 한다
-  let unplacedIndex = 0
-  const visible = editMode
-    ? stores.map((s) => {
-        if (hasCoords(s)) return s
-        const offset = unplacedIndex++ * 0.0004
-        return { ...s, lat: FALLBACK_CENTER[0] - 0.0004, lng: FALLBACK_CENTER[1] - 0.0004 + offset, unplaced: true }
-      })
-    : placed
-
+  const path = stores.filter(hasCoords).map((s) => [s.lat, s.lng])
+  const visible = pinsFor(stores, editMode, FALLBACK_CENTER)
   const selected = stores.find((s) => s.id === selectedId) ?? null
 
   return (

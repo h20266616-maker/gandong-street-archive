@@ -4,7 +4,7 @@
 지도 위 번호 핀이나 목록을 누르면 그 가게에서 찍은 사진이 열린다.
 
 - React + Vite + Tailwind CSS (JavaScript)
-- 지도: Leaflet + react-leaflet, OpenStreetMap 타일
+- 지도: 카카오맵(react-kakao-maps-sdk). 키가 없거나 로드에 실패하면 Leaflet + OpenStreetMap으로 자동 폴백
 - 배포: Vercel (정적 사이트). 서버·DB는 아직 없음
 
 ## 폴더 구조
@@ -33,6 +33,19 @@ npm install
 npm run dev
 ```
 
+### 카카오맵 키
+
+`client/.env.example`을 `client/.env`로 복사하고 JavaScript 키를 넣는다. `.env`는 GitHub에 올라가지 않는다.
+
+```
+VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
+```
+
+[Kakao Developers](https://developers.kakao.com) → 내 애플리케이션 → 앱 설정 → 플랫폼 → **Web 사이트 도메인**에 아래 주소를 등록해야 지도가 뜬다. 등록 안 된 주소에서는 OpenStreetMap 지도로 바뀐다.
+
+- `http://localhost:5173` (개발)
+- Vercel 배포 주소 (예: `https://gandong-street-archive.vercel.app`)
+
 | 명령 | 설명 |
 |---|---|
 | `npm run dev` | 개발 서버 |
@@ -56,14 +69,16 @@ npm run dev
 
 `?edit`가 없는 일반 방문자에게는 드래그·출력 UI가 보이지 않는다.
 
-> 현재 좌표는 307 간동우체국만 Nominatim 번지 단위 결과이고, 나머지는 OSM 기준점(292 오음보건진료소, 307 간동우체국) 사이를 번지 순서대로 보간한 근사값이다.
+> 현재 좌표는 카카오 주소 검색(번지 단위) 결과를 고정한 값이다. 07 다올미용실(306 검색 안 됨)은 우체국 옆에, 312의 세 가게는 같은 건물 안에서 조금씩 떨어뜨려 놓았다.
 
 ## 배포 (Vercel)
 
 1. [Vercel](https://vercel.com) → **Add New… → Project** → GitHub의 `gandong-street-archive` 선택
 2. **Root Directory: `client`** ← 이걸 빠뜨리면 빌드 실패
 3. Framework Preset: **Vite** / Build Command: `npm run build` / Output Directory: `dist`
-4. **Deploy**. 이후 `main`에 push할 때마다 자동 배포된다
+4. **Environment Variables**에 `VITE_KAKAO_MAP_KEY` = 카카오 JavaScript 키 추가
+5. **Deploy**. 이후 `main`에 push할 때마다 자동 배포된다
+6. 배포 주소를 Kakao Developers의 Web 사이트 도메인에 등록 (안 하면 배포 사이트에서는 OpenStreetMap 지도가 나온다)
 
 ## 작업 흐름
 
@@ -75,7 +90,6 @@ git push
 
 ## 남은 TODO
 
-- [ ] 01 식물의정석 주소
-- [ ] 13 미정이네 주소 (대략 위치만 알아도 `?edit` 모드에서 핀을 옮기면 됨)
+- [ ] 01 식물의정석 주소 확인 (카카오맵 검색 결과는 간동면 유촌리 1043-4, 상점가에서 서쪽으로 약 3km. 같은 가게가 맞는지 확인 필요)
+- [x] 13 미정이네 주소 → 간척월명로 312 (카카오맵 장소 검색)
 - [ ] `01_식물의정석_7`(마을 전망 사진)을 식물의정석에 둘지, 사이트 메인 이미지로 뺄지 결정
-- [ ] 나머지 가게 핀 위치를 `?edit` 모드에서 실제 위치로 미세 조정
