@@ -52,7 +52,7 @@ function PanToSelected({ store }) {
   return null
 }
 
-export default function MapView({ stores, selectedId, hoverId, previewId, onHover, onSelect, editMode, onMove }) {
+export default function MapView({ stores, selectedId, hoverId, previewId, onHover, onLeave, onSelect, editMode, onMove }) {
   const [map, setMap] = useState(null)
   const path = streetStores(stores).map((s) => [s.lat, s.lng])
   const annex = stores.find((s) => s.annex && hasCoords(s))
@@ -106,7 +106,7 @@ export default function MapView({ stores, selectedId, hoverId, previewId, onHove
               eventHandlers={{
                 click: () => onSelect(s.id),
                 mouseover: () => onHover(s.id, 'map'),
-                mouseout: () => onHover(null),
+                mouseout: () => onLeave(s.id),
                 dragend: (e) => {
                   const { lat, lng } = e.target.getLatLng()
                   onMove(s.id, lat, lng)

@@ -49,6 +49,8 @@ export default function App() {
     (id, from) => setHover((cur) => (id ? (cur?.id === id && cur?.from === from ? cur : { id, from }) : null)),
     [],
   )
+  // hover 끝: 지금 hover 중인 것이 자기일 때만 비운다. 핀→행으로 옮길 때 행의 enter가 핀의 leave보다 먼저 오기 때문
+  const handleLeave = useCallback((id) => setHover((cur) => (cur?.id === id ? null : cur)), [])
 
   const selected = stores.find((s) => s.id === selectedId) ?? null
   const { prev, next } = selected ? neighbors(stores, selected) : {}
@@ -91,6 +93,7 @@ export default function App() {
     hoverId: hover?.id ?? null,
     previewId: canPreview && hover?.from === 'map' ? hover.id : null,
     onHover: handleHover,
+    onLeave: handleLeave,
     onSelect: select,
     editMode: isEditMode,
     onMove: moveStore,
@@ -122,7 +125,7 @@ export default function App() {
               onGo={(s) => select(s.id)}
             />
           ) : (
-            <StoreList stores={stores} hoverId={hover?.id ?? null} onHover={handleHover} onSelect={select} />
+            <StoreList stores={stores} hoverId={hover?.id ?? null} onHover={handleHover} onLeave={handleLeave} onSelect={select} />
           )}
         </main>
       </div>

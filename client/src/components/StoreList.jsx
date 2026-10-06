@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { listOrder } from '../data/stores.js'
 
 // 오른쪽 패널 기본 상태: 가게 목록. 행과 지도 핀은 hover가 서로 연동된다
-export default function StoreList({ stores, hoverId, onHover, onSelect }) {
+export default function StoreList({ stores, hoverId, onHover, onLeave, onSelect }) {
   const ordered = listOrder(stores)
   const firstAnnex = ordered.find((s) => s.annex)
 
@@ -22,9 +22,9 @@ export default function StoreList({ stores, hoverId, onHover, onSelect }) {
                 type="button"
                 onClick={() => onSelect(s.id)}
                 onMouseEnter={() => onHover(s.id, 'list')}
-                onMouseLeave={() => onHover(null)}
+                onMouseLeave={() => onLeave(s.id)}
                 onFocus={() => onHover(s.id, 'list')}
-                onBlur={() => onHover(null)}
+                onBlur={() => onLeave(s.id)}
                 className={`group flex w-full items-center gap-4 px-4 py-3.5 text-left desk:px-5 ${on ? 'bg-black text-white' : 'hover:bg-black hover:text-white'}`}
               >
                 <span className="w-6 shrink-0 text-xs">{s.id}</span>

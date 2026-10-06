@@ -23,15 +23,15 @@ const editPinImage = (id, unplaced) => {
 }
 
 // 카카오 오버레이 안에서는 마우스 이벤트가 React까지 올라오지 않아서 네이티브 리스너를 직접 붙인다
-function OverlayPin({ store, on, onHover, onSelect }) {
+function OverlayPin({ store, on, onHover, onLeave, onSelect }) {
   const ref = useRef(null)
-  const latest = useRef({ onHover, onSelect })
-  latest.current = { onHover, onSelect }
+  const latest = useRef({ onHover, onLeave, onSelect })
+  latest.current = { onHover, onLeave, onSelect }
 
   useEffect(() => {
     const el = ref.current
     const enter = () => latest.current.onHover(store.id, 'map')
-    const leave = () => latest.current.onHover(null)
+    const leave = () => latest.current.onLeave(store.id)
     const click = () => latest.current.onSelect(store.id)
     el.addEventListener('mouseenter', enter)
     el.addEventListener('mouseleave', leave)
@@ -54,7 +54,7 @@ function OverlayPin({ store, on, onHover, onSelect }) {
   )
 }
 
-export default function KakaoMapView({ appKey, stores, selectedId, hoverId, previewId, onHover, onSelect, editMode, onMove, onLoadError }) {
+export default function KakaoMapView({ appKey, stores, selectedId, hoverId, previewId, onHover, onLeave, onSelect, editMode, onMove, onLoadError }) {
   const [loading, error] = useKakaoLoader({ appkey: appKey })
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -172,7 +172,7 @@ export default function KakaoMapView({ appKey, stores, selectedId, hoverId, prev
               return (
                 // zIndex를 hover로 바꾸면 카카오가 오버레이를 다시 붙여서 hover가 깜빡이므로 선택 여부로만 정한다
                 <CustomOverlayMap key={s.id} position={{ lat: s.lat, lng: s.lng }} xAnchor={0.5} yAnchor={0.5} zIndex={s.id === selectedId ? 3 : 1} clickable>
-                  <OverlayPin store={s} on={on} onHover={onHover} onSelect={onSelect} />
+                  <OverlayPin store={s} on={on} onHover={onHover} onLeave={onLeave} onSelect={onSelect} />
                 </CustomOverlayMap>
               )
             })}
