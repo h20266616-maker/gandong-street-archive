@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { stores as initialStores } from './data/stores.js'
 import { isMtId, mtPlaces as initialMt } from './data/mtPlaces.js'
 import { TABS, isPageTab, listSections, placeNeighbors, toPlaces } from './data/places.js'
+import { site } from './data/site.js'
 import KakaoMain from './components/KakaoMain.jsx'
 import BottomSheet from './components/BottomSheet.jsx'
 import PlaceList from './components/PlaceList.jsx'
@@ -205,7 +206,7 @@ export default function App() {
   }, [vw, vh, desktop, sheetH])
   const blocked = useMemo(() => [fabRect], [fabRect])
   const insets = useMemo(
-    () => (desktop ? { top: 12, right: 68, bottom: 12, left: 444 } : { top: 120, right: 60, bottom: sheetH, left: 0 }),
+    () => (desktop ? { top: 12, right: 68, bottom: 12, left: 444 } : { top: 128, right: 60, bottom: sheetH, left: 0 }),
     [desktop, sheetH],
   )
 
@@ -213,8 +214,8 @@ export default function App() {
     return (
       <div className="flex h-dvh flex-col">
         <header className="flex h-12 shrink-0 items-center justify-between border-b border-black px-4">
-          <h1 className="text-lg font-bold">간척월명로</h1>
-          <p className="text-xs text-[#888]">편집 모드</p>
+          <h1 className="truncate text-lg font-bold">{site.fullName}</h1>
+          <p className="shrink-0 text-xs text-[#888]">편집 모드</p>
         </header>
         <div className="min-h-0 flex-1">
           {KAKAO_MAP_KEY ? (
@@ -281,9 +282,12 @@ export default function App() {
       {/* 위쪽 떠 있는 바 + 칩 */}
       {/* 위쪽 바와 탭은 시트보다 위: full로 올려도 가리지 않는다 */}
       <div className="fixed left-3 right-3 z-[60] desk:right-auto desk:w-[420px]" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
-        <header className="flex h-12 items-center justify-between gap-3 border border-black bg-white px-4">
-          <h1 className="text-lg font-bold">간척월명로</h1>
-          <p className="truncate text-xs text-[#888]">하얀도화지 MT · 2026.10</p>
+        {/* 두 줄 바: 하얀도화지 · 26-2학기 / 화천 간동면 로컬 봉사 MT (모자라면 말줄임) */}
+        <header className="flex h-14 flex-col justify-center border border-black bg-white px-4">
+          <p className="text-[11px] leading-tight text-[#888]">
+            {site.org} · {site.term}
+          </p>
+          <h1 className="truncate text-[17px] font-bold leading-snug">{site.title}</h1>
         </header>
         <nav aria-label="탭" className="no-scrollbar -mx-3 flex gap-1.5 overflow-x-auto px-3 desk:mx-0 desk:px-0">
           {TABS.map((t) => (
@@ -336,7 +340,7 @@ export default function App() {
       </BottomSheet>
 
       {toast && (
-        <div role="status" className="fixed left-1/2 z-[70] -translate-x-1/2 bg-black px-4 py-3 text-sm text-white" style={{ top: 'calc(env(safe-area-inset-top) + 130px)' }}>
+        <div role="status" className="fixed left-1/2 z-[70] -translate-x-1/2 bg-black px-4 py-3 text-sm text-white" style={{ top: 'calc(env(safe-area-inset-top) + 138px)' }}>
           {toast}
         </div>
       )}

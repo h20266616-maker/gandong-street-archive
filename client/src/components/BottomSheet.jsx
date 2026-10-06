@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
-// peek·half는 화면 높이 비율, full은 위쪽 바·탭을 가리지 않게 100dvh − 116px
+// peek·half는 화면 높이 비율, full은 위쪽 바(두 줄)·탭을 가리지 않게 100dvh − 124px
 const ORDER = ['peek', 'half', 'full']
-const TOP_RESERVED = 116
+const TOP_RESERVED = 124
 const heightOf = (snap, vh) => (snap === 'full' ? vh - TOP_RESERVED : Math.round(vh * (snap === 'half' ? 0.52 : 0.36)))
 
 function useViewportHeight() {
@@ -55,7 +55,7 @@ export default function BottomSheet({ snap, onSnap, desktop, onHeight, scrollRef
 
   if (desktop) {
     return (
-      <aside className="fixed bottom-3 left-3 top-[118px] z-30 flex w-[420px] flex-col border border-black bg-white">
+      <aside className="fixed bottom-3 left-3 top-[126px] z-30 flex w-[420px] flex-col border border-black bg-white">
         <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           {children}
         </div>
