@@ -2,12 +2,15 @@
 import { fullAddress, photoUrls, shortAddress, thumbOf } from './stores.js'
 import { mtPhotoUrls, mtShortAddress } from './mtPlaces.js'
 
-// 칩: 전체 · 상점가 · MT 장소 (세부 분류는 두지 않는다)
-export const CHIPS = [
+// 위쪽 탭. map: 지도 목록 탭, page: 시트를 full로 올려 페이지를 보여주는 탭
+export const TABS = [
+  { key: 'tt', label: '타임테이블', page: true },
   { key: 'all', label: '전체', title: '전체' },
-  { key: 'shop', label: '상점가', title: '간척월명로 상점가' },
-  { key: 'mt', label: 'MT 장소', title: 'MT 장소' },
+  { key: 'shop', label: '상점가 리스트', title: '간척월명로 상점가' },
+  { key: 'notice', label: '공지', page: true },
+  { key: 'call', label: '비상연락망', page: true },
 ]
+export const isPageTab = (key) => Boolean(TABS.find((t) => t.key === key)?.page)
 
 // 목록 행·상세 부제: "상점가 · 간척월명로 300 · 사진 3", "숙소 · 죽엽산길 81-68"
 const subtitle = (head, short, n) => [head, short, n ? `사진 ${n}` : null].filter(Boolean).join(' · ')
@@ -41,13 +44,12 @@ export const toPlaces = (stores, mts) => [
   }),
 ]
 
-// 목록 순서와 구분: 상점가 → MT 장소 → 상점가 밖(별관). 칩을 따른다.
+// 목록 순서와 구분: 상점가 → MT 장소 → 상점가 밖(별관). 'shop' 탭이면 MT 장소를 뺀다.
 // 반환: [{ title | null, items }]
-export function listSections(places, chip) {
+export function listSections(places, tab) {
   const of = (kind) => places.filter((p) => p.kind === kind)
-  if (chip === 'mt') return [{ title: null, items: of('mt') }]
   const sections = [{ title: null, items: of('shop') }]
-  if (chip === 'all') sections.push({ title: 'MT 장소', items: of('mt') })
+  if (tab !== 'shop') sections.push({ title: 'MT 장소', items: of('mt') })
   sections.push({ title: '상점가 밖', items: of('annex') })
   return sections.filter((s) => s.items.length)
 }

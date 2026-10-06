@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
-export const SNAPS = { peek: 0.36, half: 0.52, full: 0.88 }
+// peek·half는 화면 높이 비율, full은 위쪽 바·탭을 가리지 않게 100dvh − 116px
 const ORDER = ['peek', 'half', 'full']
+const TOP_RESERVED = 116
+const heightOf = (snap, vh) => (snap === 'full' ? vh - TOP_RESERVED : Math.round(vh * (snap === 'half' ? 0.52 : 0.36)))
 
 function useViewportHeight() {
   const [h, setH] = useState(() => window.visualViewport?.height ?? window.innerHeight)
@@ -23,7 +25,7 @@ function useViewportHeight() {
 export default function BottomSheet({ snap, onSnap, desktop, onHeight, scrollRef, children }) {
   const vh = useViewportHeight()
   const [drag, setDrag] = useState(null) // { startY, startH, h, moved }
-  const height = drag ? drag.h : Math.round(vh * SNAPS[snap])
+  const height = drag ? drag.h : heightOf(snap, vh)
 
   useEffect(() => {
     if (!desktop) onHeight(height)
@@ -36,7 +38,7 @@ export default function BottomSheet({ snap, onSnap, desktop, onHeight, scrollRef
   const onMove = (e) => {
     if (!drag) return
     const dy = drag.startY - e.clientY
-    const h = Math.min(vh * 0.92, Math.max(vh * 0.2, drag.startH + dy))
+    const h = Math.min(vh - TOP_RESERVED, Math.max(vh * 0.2, drag.startH + dy))
     setDrag({ ...drag, h, moved: drag.moved || Math.abs(dy) > 6 })
   }
   const onUp = () => {
@@ -45,8 +47,7 @@ export default function BottomSheet({ snap, onSnap, desktop, onHeight, scrollRef
       // 탭: 한 단계 위로, 맨 위면 맨 아래로
       onSnap(ORDER[(ORDER.indexOf(snap) + 1) % ORDER.length])
     } else {
-      const ratio = drag.h / vh
-      const nearest = ORDER.reduce((a, b) => (Math.abs(SNAPS[b] - ratio) < Math.abs(SNAPS[a] - ratio) ? b : a))
+      const nearest = ORDER.reduce((a, b) => (Math.abs(heightOf(b, vh) - drag.h) < Math.abs(heightOf(a, vh) - drag.h) ? b : a))
       onSnap(nearest)
     }
     setDrag(null)

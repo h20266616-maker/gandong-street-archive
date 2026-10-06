@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { stores as initialStores } from './data/stores.js'
 import { isMtId, mtPlaces as initialMt } from './data/mtPlaces.js'
-import { CHIPS, listSections, placeNeighbors, toPlaces } from './data/places.js'
+import { TABS, isPageTab, listSections, placeNeighbors, toPlaces } from './data/places.js'
 import KakaoMain from './components/KakaoMain.jsx'
 import BottomSheet from './components/BottomSheet.jsx'
 import PlaceList from './components/PlaceList.jsx'
 import PlaceDetail from './components/PlaceDetail.jsx'
+import { Contacts, Notice, Timetable } from './components/Pages.jsx'
 import Lightbox from './components/Lightbox.jsx'
 import EditMap from './components/EditMap.jsx'
 
@@ -14,6 +15,15 @@ const params = new URLSearchParams(window.location.search)
 const isEditMode = params.has('edit')
 const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY
 const validId = (id) => initialStores.some((s) => s.id === id) || isMtId(id)
+const TAB_KEYS = TABS.map((t) => t.key)
+// 처음 탭: ?tab= 이 있으면 그 탭. ?shop= 으로 들어오면 전체 탭에서 그 장소 (상점가 리스트 탭이고 가게면 그대로)
+const initialTab = (() => {
+  const t = params.get('tab')
+  const shop = validId(params.get('shop')) ? params.get('shop') : null
+  if (shop) return t === 'shop' && !isMtId(shop) ? 'shop' : 'all'
+  if (TAB_KEYS.includes(t)) return t
+  return params.get('view') === 'shop' ? 'shop' : 'all' // 예전 링크(?view=) 호환
+})()
 
 function useMedia(query) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -35,9 +45,11 @@ const fab = (on = false) => `flex h-11 w-11 items-center justify-center border b
 export default function App() {
   const [stores, setStores] = useState(initialStores)
   const [mts, setMts] = useState(initialMt)
-  const [chip, setChip] = useState(() => (['mt', 'shop'].includes(params.get('view')) ? params.get('view') : 'all'))
+  const [tab, setTab] = useState(initialTab)
+  // 페이지 탭(타임테이블·공지·비상연락망)을 보는 동안에도 지도는 마지막 지도 탭 상태로 남는다
+  const [mapTab, setMapTab] = useState(isPageTab(initialTab) ? 'all' : initialTab)
   const [selectedId, setSelectedId] = useState(() => (validId(params.get('shop')) ? params.get('shop') : null))
-  const [snap, setSnap] = useState(() => (validId(params.get('shop')) ? 'half' : 'peek'))
+  const [snap, setSnap] = useState(() => (isPageTab(initialTab) ? 'full' : validId(params.get('shop')) ? 'half' : 'peek'))
   const [sheetH, setSheetH] = useState(0)
   const [fitTick, setFitTick] = useState(0)
   const [threeD, setThreeD] = useState(false)
@@ -53,22 +65,22 @@ export default function App() {
   const watchId = useRef(null)
 
   const places = useMemo(() => toPlaces(stores, mts), [stores, mts])
-  const sections = useMemo(() => listSections(places, chip), [places, chip])
+  const onPage = isPageTab(tab)
+  const sections = useMemo(() => listSections(places, mapTab), [places, mapTab])
   const activeIds = useMemo(() => new Set(sections.flatMap((s) => s.items.map((p) => p.id))), [sections])
   const selected = places.find((p) => p.id === selectedId) ?? null
   const { prev, next } = selected ? placeNeighbors(activeIds.has(selected.id) ? sections : listSections(places, 'all'), selected.id) : {}
 
-  // 지금 장소를 ?shop=10 으로 (MT 칩이면 &view=mt). 단톡방에 링크를 그대로 공유할 수 있게
+  // 지금 탭과 장소를 ?tab=all&shop=10 으로. 단톡방에 링크를 그대로 공유할 수 있게
   useEffect(() => {
     if (isEditMode) return
     const q = new URLSearchParams(window.location.search)
-    if (selectedId) q.set('shop', selectedId)
+    q.set('tab', tab)
+    if (selectedId && !onPage) q.set('shop', selectedId)
     else q.delete('shop')
-    if (chip !== 'all') q.set('view', chip)
-    else q.delete('view')
-    const s = q.toString()
-    history.replaceState(history.state, '', `${window.location.pathname}${s ? `?${s}` : ''}`)
-  }, [selectedId, chip])
+    q.delete('view')
+    history.replaceState(history.state, '', `${window.location.pathname}?${q}`)
+  }, [selectedId, tab, onPage])
 
   const toastTimer = useRef(0)
   const showToast = useCallback((msg) => {
@@ -88,11 +100,38 @@ export default function App() {
     sheetScroll.current?.scrollTo({ top: 0 })
   }, [])
 
-  const chooseChip = (key) => {
-    setChip(key)
+  const chooseTab = (key) => {
+    setTab(key)
+    sheetScroll.current?.scrollTo({ top: 0 })
+    if (isPageTab(key)) {
+      setSnap('full')
+      return
+    }
+    setMapTab(key)
     setSelectedId(null)
     setSnap('peek')
     setFitTick((t) => t + 1)
+  }
+
+  // 페이지 탭에서 시트를 내리면 지도 탭으로 돌아간다
+  const onSnap = (s) => {
+    setSnap(s)
+    if (onPage && s !== 'full') setTab(mapTab)
+  }
+
+  // 타임테이블 [지도]: 장소면 전체 탭에서 그 장소 상세, 'shop'이면 상점가 리스트 탭
+  const showFromTimetable = (place) => {
+    if (place === 'shop') {
+      chooseTab('shop')
+      return
+    }
+    setTab('all')
+    if (mapTab !== 'all') {
+      setMapTab('all')
+      setFitTick((t) => t + 1)
+    }
+    setSelectedId(place)
+    setSnap('half')
     sheetScroll.current?.scrollTo({ top: 0 })
   }
 
@@ -133,7 +172,12 @@ export default function App() {
   useEffect(() => {
     if (isEditMode) return undefined
     const onKey = (e) => {
-      if (lightbox != null || !selected) return
+      if (lightbox != null) return
+      if (onPage) {
+        if (e.key === 'Escape') onSnap('peek')
+        return
+      }
+      if (!selected) return
       if (e.target instanceof HTMLElement && e.target.closest('input, textarea')) return
       if (e.key === 'Escape') backToList()
       else if (e.key === 'ArrowLeft' && prev) select(prev.id)
@@ -141,7 +185,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [lightbox, selected, prev, next, select, backToList])
+  }, [lightbox, selected, prev, next, select, backToList, onPage]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSheetHeight = useCallback((h) => setSheetH(h), [])
   // 지도 위 오른쪽 떠 있는 버튼 자리 (이름표가 여기 가리지 않게)
@@ -223,7 +267,7 @@ export default function App() {
             activeIds={activeIds}
             insets={insets}
             blocked={blocked}
-            fitKey={`${chip === 'mt' ? 'mt' : 'street'}:${fitTick}`}
+            fitKey={`${mapTab === 'all' ? 'all' : 'street'}:${fitTick}`}
             threeD={threeD}
             me={me}
             onPick={select}
@@ -235,22 +279,24 @@ export default function App() {
       </div>
 
       {/* 위쪽 떠 있는 바 + 칩 */}
-      <div className="fixed left-3 right-3 z-40 desk:right-auto desk:w-[420px]" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
+      {/* 위쪽 바와 탭은 시트보다 위: full로 올려도 가리지 않는다 */}
+      <div className="fixed left-3 right-3 z-[60] desk:right-auto desk:w-[420px]" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
         <header className="flex h-12 items-center justify-between gap-3 border border-black bg-white px-4">
           <h1 className="text-lg font-bold">간척월명로</h1>
           <p className="truncate text-xs text-[#888]">하얀도화지 MT · 2026.10</p>
         </header>
-        <nav aria-label="분류" className="no-scrollbar -mx-3 flex gap-1.5 overflow-x-auto px-3 desk:mx-0 desk:px-0">
-          {CHIPS.map((c) => (
-            <button key={c.key} type="button" aria-pressed={chip === c.key} onClick={() => chooseChip(c.key)} className="flex h-11 shrink-0 items-center">
-              <span className={`flex h-9 items-center whitespace-nowrap border border-black px-3.5 text-[13px] ${chip === c.key ? 'bg-black text-white' : 'bg-white'}`}>{c.label}</span>
+        <nav aria-label="탭" className="no-scrollbar -mx-3 flex gap-1.5 overflow-x-auto px-3 desk:mx-0 desk:px-0">
+          {TABS.map((t) => (
+            <button key={t.key} type="button" aria-pressed={tab === t.key} onClick={() => chooseTab(t.key)} className="flex h-11 min-w-11 shrink-0 items-center justify-center">
+              <span className={`flex h-9 items-center whitespace-nowrap border border-black px-2.5 text-[13px] ${tab === t.key ? 'bg-black text-white' : 'bg-white'}`}>{t.label}</span>
             </button>
           ))}
         </nav>
       </div>
 
       {/* 오른쪽 떠 있는 버튼: 시트 높이를 따라 움직인다 */}
-      <div className="fixed right-3 z-40 flex flex-col" style={{ bottom: fabBottom, transition: 'bottom .25s ease-out' }}>
+      {/* 시트가 full이면 버튼 자리가 없어서 숨긴다 */}
+      <div className={`fixed right-3 z-40 flex flex-col ${!desktop && snap === 'full' ? 'invisible' : ''}`} style={{ bottom: fabBottom, transition: 'bottom .25s ease-out' }}>
         <button type="button" aria-pressed={threeD} onClick={() => setThreeD((v) => !v)} className={fab(threeD)}>
           3D
         </button>
@@ -265,8 +311,14 @@ export default function App() {
         </button>
       </div>
 
-      <BottomSheet snap={snap} onSnap={setSnap} desktop={desktop} onHeight={onSheetHeight} scrollRef={sheetScroll}>
-        {selected ? (
+      <BottomSheet snap={snap} onSnap={onSnap} desktop={desktop} onHeight={onSheetHeight} scrollRef={sheetScroll}>
+        {tab === 'tt' ? (
+          <Timetable onShowPlace={showFromTimetable} />
+        ) : tab === 'notice' ? (
+          <Notice />
+        ) : tab === 'call' ? (
+          <Contacts />
+        ) : selected ? (
           <PlaceDetail
             key={selected.id}
             place={selected}
@@ -279,12 +331,12 @@ export default function App() {
             allPhotosRef={allPhotosRef}
           />
         ) : (
-          <PlaceList title={CHIPS.find((c) => c.key === chip).title} sections={sections} onPick={select} />
+          <PlaceList title={TABS.find((t) => t.key === mapTab).title} sections={sections} onPick={select} />
         )}
       </BottomSheet>
 
       {toast && (
-        <div role="status" className="fixed left-1/2 z-[60] -translate-x-1/2 bg-black px-4 py-3 text-sm text-white" style={{ top: 'calc(env(safe-area-inset-top) + 130px)' }}>
+        <div role="status" className="fixed left-1/2 z-[70] -translate-x-1/2 bg-black px-4 py-3 text-sm text-white" style={{ top: 'calc(env(safe-area-inset-top) + 130px)' }}>
           {toast}
         </div>
       )}

@@ -222,8 +222,8 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
   const fitList = fitKey?.split(':')[0]
   useEffect(() => {
     if (!mapReady) return
-    // MT 보기: 상점가와 MT 장소가 다 보이게 (이름표는 겹치지 않는 쪽으로 따로 놓는다)
-    if (fitList === 'mt') fitPlaces(places.filter((p) => p.kind !== 'annex'))
+    // 전체: 상점가와 MT 장소가 다 보이게 (별관은 3km 떨어져 있어서 범위에서 뺀다. 이름표는 겹치지 않는 쪽으로 따로 놓는다)
+    if (fitList === 'all') fitPlaces(places.filter((p) => p.kind !== 'annex'))
     else fitPlaces(places.filter((p) => p.kind === 'shop'))
   }, [fitKey, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
