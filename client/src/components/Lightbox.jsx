@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { photoUrls } from '../data/stores.js'
+import { photoUrls, shortAddress } from '../data/stores.js'
 
 export default function Lightbox({ store, index, onIndexChange, onClose }) {
   const photos = photoUrls(store)
@@ -18,6 +18,8 @@ export default function Lightbox({ store, index, onIndexChange, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  const link = 'underline underline-offset-4 hover:no-underline'
+
   return (
     <div
       role="dialog"
@@ -32,38 +34,32 @@ export default function Lightbox({ store, index, onIndexChange, onClose }) {
         if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1)
       }}
     >
-      <div className="flex justify-end p-2">
-        <button type="button" onClick={onClose} className="px-3 py-2 text-3xl leading-none" aria-label="닫기 (ESC)">
-          ×
+      <div className="flex items-center justify-between gap-4 px-4 py-3 text-sm desk:px-6">
+        <p className="min-w-0 truncate">
+          {store.id} {store.name} — {shortAddress(store)}
+        </p>
+        <button type="button" onClick={onClose} className={`shrink-0 ${link}`}>
+          닫기
         </button>
       </div>
 
-      <div
-        className="relative flex min-h-0 flex-1 items-center justify-center px-4"
-        onClick={(e) => e.target === e.currentTarget && onClose()}
-      >
-        <img
-          key={photos[index]}
-          src={photos[index]}
-          alt={`${store.name} ${index + 1}`}
-          draggable={false}
-          className="max-h-full max-w-full select-none object-contain"
-        />
-        {total > 1 && (
-          <>
-            <button type="button" onClick={() => go(-1)} aria-label="이전 사진" className="absolute left-0 top-1/2 -translate-y-1/2 px-3 py-6 text-4xl text-[#ccc] hover:text-white lg:px-6">
-              ‹
-            </button>
-            <button type="button" onClick={() => go(1)} aria-label="다음 사진" className="absolute right-0 top-1/2 -translate-y-1/2 px-3 py-6 text-4xl text-[#ccc] hover:text-white lg:px-6">
-              ›
-            </button>
-          </>
-        )}
+      <div className="flex min-h-0 flex-1 items-center justify-center px-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <img key={photos[index]} src={photos[index]} alt={`${store.name} ${index + 1}`} draggable={false} className="max-h-full max-w-full select-none object-contain" />
       </div>
 
-      <p className="px-4 py-4 text-center text-sm tabular-nums text-[#ccc]">
-        {store.name} · {index + 1} / {total}
-      </p>
+      <div className="flex items-center justify-center gap-3 px-4 py-4 text-sm">
+        <button type="button" onClick={() => go(-1)} className={link}>
+          이전
+        </button>
+        <span>·</span>
+        <span>
+          {index + 1} / {total}
+        </span>
+        <span>·</span>
+        <button type="button" onClick={() => go(1)} className={link}>
+          다음
+        </button>
+      </div>
     </div>
   )
 }

@@ -1,27 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
-import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet'
 import { MAP_CENTER as FALLBACK_CENTER, hasCoords, pinsFor, streetStores } from '../data/stores.js'
-import AnnexToggle from './AnnexToggle.jsx'
+import MapControls from './MapControls.jsx'
+import PinPreview from './PinPreview.jsx'
 
-const pinIcon = (id, { active, unplaced }) =>
-  L.divIcon({
-    className: 'pin-icon',
-    html: `<div class="pin${active ? ' is-active' : ''}${unplaced ? ' is-unplaced' : ''}">${id}</div>`,
-    iconSize: [26, 20],
-    iconAnchor: [13, 10],
-  })
+// 카카오맵을 못 쓸 때(키 없음·도메인 미등록) 쓰는 OpenStreetMap 지도. 모양과 동작은 카카오 쪽과 같다
 
-const annexIcon = (id, { active }) =>
-  L.divIcon({
+const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+const pinIcon = (s, { on }) => {
+  const label = s.annex ? `${s.id} 별관` : s.id
+  const w = s.annex ? 52 : 24
+  return L.divIcon({
     className: 'pin-icon',
-    html: `<div class="pin-annex${active ? ' is-active' : ''}">${id} 별관</div>`,
-    iconSize: [54, 20],
-    iconAnchor: [27, 10],
+    html: `<div class="pin${on ? ' is-on' : ''}${s.unplaced ? ' is-unplaced' : ''}">${label}</div>`,
+    iconSize: [w, 20],
+    iconAnchor: [w / 2, 10],
   })
+}
 
 const fitStreet = (map, points) => {
-  if (points.length) map.fitBounds(points, { padding: [40, 40], maxZoom: 18 })
+  if (points.length) map.fitBounds(points, { padding: [48, 48], maxZoom: 18, animate: false })
 }
 
 // 처음 한 번만 상점가 핀(별관 제외)이 다 보이게 맞춘다
@@ -36,63 +36,94 @@ function FitStreet({ points }) {
   return null
 }
 
-function FlyToSelected({ store }) {
+// 지도를 끌거나 확대하면 미리보기를 닫는다
+function ClosePreviewOnMove({ onHover }) {
+  useMapEvents({ movestart: () => onHover(null), zoomstart: () => onHover(null) })
+  return null
+}
+
+function PanToSelected({ store }) {
   const map = useMap()
   const lat = store?.lat
   const lng = store?.lng
   useEffect(() => {
-    if (lat != null && lng != null) map.flyTo([lat, lng], Math.max(map.getZoom(), 18), { duration: 0.6 })
+    if (lat != null && lng != null) map.panTo([lat, lng], { animate: !reducedMotion() })
   }, [map, store?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   return null
 }
 
-export default function MapView({ stores, activeIds, selectedId, onSelect, editMode, onMove }) {
+export default function MapView({ stores, selectedId, hoverId, previewId, onHover, onSelect, editMode, onMove }) {
   const [map, setMap] = useState(null)
   const path = streetStores(stores).map((s) => [s.lat, s.lng])
   const annex = stores.find((s) => s.annex && hasCoords(s))
-  const visible = pinsFor(stores, editMode, FALLBACK_CENTER)
+  const pins = pinsFor(stores, editMode, FALLBACK_CENTER)
   const selected = stores.find((s) => s.id === selectedId) ?? null
+
+  // 미리보기: 카카오 쪽과 같이 지도 위 일반 div. 핀 오른쪽, 화면 밖이면 왼쪽, 위·아래 끝이면 안쪽으로
+  const preview = !editMode && previewId ? pins.find((s) => s.id === previewId) : null
+  let previewStyle = null
+  if (preview && map) {
+    const pt = map.latLngToContainerPoint([preview.lat, preview.lng])
+    const { x: w, y: h } = map.getSize()
+    const cardW = 182
+    const cardH = 172
+    previewStyle = {
+      left: pt.x + 18 + cardW > w - 8 ? pt.x - 18 - cardW : pt.x + 18,
+      top: Math.min(Math.max(pt.y - cardH / 2, 8), h - cardH - 8),
+    }
+  }
 
   return (
     <div className="relative h-full w-full">
-      <AnnexToggle
+      <MapControls
         annex={annex}
-        viewing={Boolean(selected?.annex)}
-        onGo={() => onSelect(annex.id)}
+        viewingAnnex={Boolean(selected?.annex)}
+        onAnnex={() => onSelect(annex.id)}
         onBack={() => {
           onSelect(null)
           if (map) fitStreet(map, path)
         }}
+        onZoomIn={() => map?.zoomIn()}
+        onZoomOut={() => map?.zoomOut()}
       />
-      <MapContainer center={FALLBACK_CENTER} zoom={17} scrollWheelZoom className="h-full w-full" ref={setMap}>
+      <MapContainer center={FALLBACK_CENTER} zoom={17} zoomControl={false} scrollWheelZoom className="h-full w-full" ref={setMap}>
         <TileLayer
           className="map-tiles-bw"
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           maxZoom={19}
         />
-        <Polyline positions={path} pathOptions={{ color: '#1E1E1C', weight: 1.5, dashArray: '2 6', opacity: 0.8 }} />
-        {visible.map((s) => (
-          <Marker
-            key={s.id}
-            position={[s.lat, s.lng]}
-            icon={s.annex ? annexIcon(s.id, { active: s.id === selectedId }) : pinIcon(s.id, { active: s.id === selectedId, unplaced: s.unplaced })}
-            opacity={!activeIds || activeIds.has(s.id) ? 1 : 0.2}
-            zIndexOffset={s.id === selectedId ? 1000 : 0}
-            title={s.name}
-            draggable={editMode}
-            eventHandlers={{
-              click: () => onSelect(s.id),
-              dragend: (e) => {
-                const { lat, lng } = e.target.getLatLng()
-                onMove(s.id, lat, lng)
-              },
-            }}
-          />
-        ))}
+        {pins.map((s) => {
+          const on = s.id === selectedId || s.id === hoverId
+          return (
+            <Marker
+              key={s.id}
+              position={[s.lat, s.lng]}
+              icon={pinIcon(s, { on })}
+              zIndexOffset={on ? 1000 : 0}
+              title={s.name}
+              draggable={editMode}
+              eventHandlers={{
+                click: () => onSelect(s.id),
+                mouseover: () => onHover(s.id, 'map'),
+                mouseout: () => onHover(null),
+                dragend: (e) => {
+                  const { lat, lng } = e.target.getLatLng()
+                  onMove(s.id, lat, lng)
+                },
+              }}
+            />
+          )
+        })}
         <FitStreet points={path} />
-        <FlyToSelected store={selected} />
+        <PanToSelected store={selected} />
+        <ClosePreviewOnMove onHover={onHover} />
       </MapContainer>
+      {previewStyle && (
+        <div className="pin-preview pointer-events-none absolute z-[900] border border-black" style={previewStyle}>
+          <PinPreview store={preview} />
+        </div>
+      )}
     </div>
   )
 }
