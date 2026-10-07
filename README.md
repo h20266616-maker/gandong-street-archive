@@ -91,7 +91,7 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 
 ## 내용 고치기
 
-- **사이트 이름**: `client/src/data/site.js`와 `client/index.html`(`<title>`, 미리보기 `og:` 태그). 미리보기 이미지는 `client/public/og.jpg`(1200×630)
+- **사이트 이름**: `client/src/data/site.js`와 `client/index.html`(`<title>`, 미리보기 `og:` 태그). 링크 미리보기에는 사진을 넣지 않는다 (`og:image` 없음)
 - **타임테이블**: `client/src/data/timetable.js`는 엑셀을 그대로 옮긴 파일이다 (`{ all, street, mosaic, sign }`, 행은 `{ time, title, note, team }`, 노란 칸 = `team: true`). 엑셀이 바뀌면 이 파일을 통째로 교체한다. `[지도]` 연결은 `client/src/components/Pages.jsx`의 `PLACE_BY_TITLE`
 - **공지·비상연락망**: `client/src/data/notice.js`, `contacts.js`
 - **한 줄 기록**: `stores.js` 각 가게의 `memo`. 상세 머리에 한 줄로 나오고, 비어 있으면 숨김
