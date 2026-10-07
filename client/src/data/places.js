@@ -19,6 +19,14 @@ export const cardOrder = (places) => [
   ...MT_ORDER.map((id) => places.find((p) => p.id === id)).filter(Boolean),
 ]
 
+// 지도 탭 카테고리 필터. 상점가는 별관(식물의정석)까지 포함
+export const FILTERS = [
+  { key: 'all', label: '전체' },
+  { key: 'shop', label: '상점가' },
+  { key: 'mt', label: 'MT 장소' },
+]
+export const inFilter = (f, p) => f === 'all' || (f === 'mt' ? p.kind === 'mt' : p.kind !== 'mt')
+
 // 목록 행·상세 부제: "상점가 · 간척월명로 300 · 사진 3", "숙소 · 죽엽산길 81-68"
 const subtitle = (head, short, n) => [head, short, n ? `사진 ${n}` : null].filter(Boolean).join(' · ')
 

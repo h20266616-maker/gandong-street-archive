@@ -17,7 +17,7 @@ const CardStrip = forwardRef(function CardStrip({ places, selectedId, onSelect, 
     const target = el.offsetLeft - 12
     if (Math.abs(track.scrollLeft - target) < 4) return
     track.scrollTo({ left: target, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
-  }, [selectedId])
+  }, [selectedId, places])
 
   // 스크롤이 멈추면 맨 앞 카드를 선택. 선택한 카드로 옮겨 간 스크롤이면 이미 선택돼 있어서 아무 일도 없다
   const onScroll = () => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { stores as initialStores } from './data/stores.js'
 import { isMtId, mtPlaces as initialMt } from './data/mtPlaces.js'
-import { TABS, cardOrder, placeNeighbors, toPlaces } from './data/places.js'
+import { FILTERS, TABS, cardOrder, inFilter, placeNeighbors, toPlaces } from './data/places.js'
 import { site } from './data/site.js'
 import KakaoMain from './components/KakaoMain.jsx'
 import TabBar from './components/TabBar.jsx'
@@ -20,6 +20,11 @@ const TAB_KEYS = TABS.map((t) => t.key)
 const linkShop = validId(params.get('shop')) ? params.get('shop') : null
 // 처음 탭: ?shop= 이 있으면 지도 탭에서 그 장소 상세. 아니면 ?tab=, 없으면 지도 (예전 링크의 tab=all은 지도로)
 const initialTab = linkShop ? 'map' : TAB_KEYS.includes(params.get('tab')) ? params.get('tab') : 'map'
+// 지도 필터: ?f=all|shop|mt. 링크로 연 장소가 그 필터에서 숨는 쪽이면 전체로
+const FILTER_KEYS = FILTERS.map((f) => f.key)
+const linkKind = linkShop ? (isMtId(linkShop) ? 'mt' : 'shop') : null
+const qf = params.get('f')
+const initialFilter = FILTER_KEYS.includes(qf) && (!linkKind || qf === 'all' || qf === linkKind) ? qf : 'all'
 
 function useMedia(query) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -50,14 +55,20 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const [lightbox, setLightbox] = useState(null) // 사진 번호
   const [kakaoFailed, setKakaoFailed] = useState(false)
+  const [filter, setFilter] = useState(initialFilter)
+  // 지도 범위 맞추기 요청: 처음과 필터 버튼을 누를 때만 (skipFocus: 그때 고른 맨 앞 카드로 지도를 옮기지 않는다)
+  const [fitReq, setFitReq] = useState({ f: initialFilter, seq: 0, skipFocus: false })
   const wide = useMedia('(min-width: 760px)')
   const titleRef = useRef(null)
+  const legendRef = useRef(null)
   const stripRef = useRef(null)
   const watchId = useRef(null)
 
   const places = useMemo(() => toPlaces(stores, mts), [stores, mts])
-  const order = useMemo(() => cardOrder(places), [places])
-  const allIds = useMemo(() => new Set(places.map((p) => p.id)), [places])
+  const shown = useMemo(() => places.filter((p) => inFilter(filter, p)), [places, filter])
+  const order = useMemo(() => cardOrder(shown), [shown])
+  const shownIds = useMemo(() => new Set(shown.map((p) => p.id)), [shown])
+  const counts = useMemo(() => ({ shop: places.filter((p) => inFilter('shop', p)).length, mt: places.filter((p) => inFilter('mt', p)).length }), [places])
   const selected = places.find((p) => p.id === selectedId) ?? null
   const { prev, next } = selected ? placeNeighbors(order, selected.id) : {}
 
@@ -67,11 +78,13 @@ export default function App() {
     const q = new URLSearchParams(window.location.search)
     q.set('tab', tab)
     if (tab !== 'tt') q.delete('team') // 팀은 타임테이블 탭에서만 (localStorage에도 남는다)
+    if (tab === 'map') q.set('f', filter)
+    else q.delete('f')
     if (detailOpen && selectedId) q.set('shop', selectedId)
     else q.delete('shop')
     q.delete('view')
     history.replaceState(history.state, '', `${window.location.pathname}?${q}`)
-  }, [tab, selectedId, detailOpen])
+  }, [tab, selectedId, detailOpen, filter])
 
   const toastTimer = useRef(0)
   const showToast = useCallback((msg) => {
@@ -94,14 +107,30 @@ export default function App() {
     setTab(key)
     setDetailOpen(false)
   }
+  // 필터 바꾸기: 보이는 카드의 맨 앞을 고르고, 보이는 핀이 다 들어오게 지도 범위를 맞춘다
+  const chooseFilter = (f) => {
+    if (f === filter) return
+    setFilter(f)
+    setFitReq((r) => ({ f, seq: r.seq + 1, skipFocus: true }))
+    setDetailOpen(false)
+    setSelectedId(cardOrder(places.filter((p) => inFilter(f, p)))[0]?.id ?? null)
+  }
+  // 지금 필터에서 숨은 장소로 가야 하면 전체로 (범위는 그대로, 그 장소로 이동만)
+  const reveal = (id) => {
+    const p = places.find((x) => x.id === id)
+    if (p && !inFilter(filter, p)) setFilter('all')
+  }
+
   // 타임테이블 [지도]: 지도 탭에서 그 장소를 고른다
   const showOnMap = (id) => {
+    reveal(id)
     setTab('map')
     setDetailOpen(false)
     setSelectedId(id)
   }
   // 상점가 그리드: 지도 탭에서 그 장소 상세를 바로 연다
   const openFromGrid = (id) => {
+    reveal(id)
     setTab('map')
     open(id)
   }
@@ -148,12 +177,13 @@ export default function App() {
   }, [lightbox, detailOpen, prev, next, select, closeDetail])
 
   // 지도 초점 영역: 제목 박스 아래 ~ 카드 줄 위 (실제 요소 위치를 재서 safe-area까지 맞춘다)
-  const [frame, setFrame] = useState({ top: 76, bottom: 196, vw: window.innerWidth })
+  const [frame, setFrame] = useState({ top: 124, bottom: 196, vw: window.innerWidth, legend: null })
   useEffect(() => {
     const measure = () => {
       const t = titleRef.current?.getBoundingClientRect()
       const s = stripRef.current?.getBoundingClientRect()
-      setFrame({ top: t ? t.bottom + 8 : 76, bottom: s ? window.innerHeight - s.top : 196, vw: window.innerWidth })
+      const l = legendRef.current?.getBoundingClientRect()
+      setFrame({ top: t ? t.bottom + 8 : 124, bottom: s ? window.innerHeight - s.top : 196, vw: window.innerWidth, legend: l ? { x1: l.left - 4, y2: l.bottom + 4 } : null })
     }
     measure()
     window.addEventListener('resize', measure)
@@ -167,8 +197,11 @@ export default function App() {
     () => ({ top: frame.top, bottom: frame.bottom, left: 0, right: wide && detailOpen ? 440 : 64 }),
     [frame, wide, detailOpen],
   )
-  // 이름표가 가리면 안 되는 자리: 오른쪽 위 버튼 2개
-  const blocked = useMemo(() => [{ x1: frame.vw - 12 - 44 - 4, x2: frame.vw, y1: 0, y2: frame.top + 44 }], [frame])
+  // 이름표가 가리면 안 되는 자리: 오른쪽 위 버튼 2개와 범례
+  const blocked = useMemo(
+    () => [{ x1: frame.vw - 12 - 44 - 4, x2: frame.vw, y1: 0, y2: frame.top + 44 }, ...(frame.legend ? [{ x1: frame.legend.x1, x2: frame.vw, y1: 0, y2: frame.legend.y2 }] : [])],
+    [frame],
+  )
 
   if (isEditMode) {
     return (
@@ -222,12 +255,13 @@ export default function App() {
         {KAKAO_MAP_KEY && !kakaoFailed ? (
           <KakaoMain
             appKey={KAKAO_MAP_KEY}
-            places={places}
+            places={shown}
             selectedId={selectedId}
-            activeIds={allIds}
+            activeIds={shownIds}
             insets={insets}
             blocked={blocked}
-            fitKey="all:0"
+            fitKey={`${fitReq.f}:${fitReq.seq}`}
+            fitSkipFocus={fitReq.skipFocus}
             threeD={threeD}
             me={me}
             onPick={pick}
@@ -240,17 +274,33 @@ export default function App() {
 
       {onMap && (
         <>
-          {/* 왼쪽 위 제목 박스 */}
-          <header
-            ref={titleRef}
-            className="fixed left-3 right-[68px] z-30 border border-black bg-white px-3 py-[7px] desk:right-auto desk:w-[360px]"
-            style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
-          >
-            <small className="block text-[11px] text-[#888]">
-              {site.org} · {site.term}
-            </small>
-            <h1 className="truncate text-base font-bold">{site.title}</h1>
-          </header>
+          {/* 왼쪽 위 제목 박스, 바로 아래 카테고리 필터 */}
+          <div ref={titleRef} className="fixed left-3 right-[68px] z-30 desk:right-auto desk:w-[360px]" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
+            <header className="border border-black bg-white px-3 py-[7px]">
+              <small className="block text-[11px] text-[#888]">
+                {site.org} · {site.term}
+              </small>
+              <h1 className="truncate text-base font-bold">{site.title}</h1>
+            </header>
+            <div role="radiogroup" aria-label="장소 종류" className="mt-2 inline-flex">
+              {FILTERS.map((f, i) => {
+                const on = filter === f.key
+                return (
+                  <button
+                    key={f.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => chooseFilter(f.key)}
+                    className={`flex h-10 items-center gap-1 whitespace-nowrap border border-black px-3 text-[13px] ${i ? '-ml-px' : ''} ${on ? 'bg-black font-bold text-white' : 'bg-white text-black'}`}
+                  >
+                    {f.label}
+                    {counts[f.key] != null && <span className={`text-[11px] font-normal ${on ? 'text-[#aaa]' : 'text-[#888]'}`}>{counts[f.key]}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
           {/* 오른쪽 위: 내 위치, 3D (확대·축소는 핀치) */}
           <div className="fixed right-3 z-30 flex flex-col" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
@@ -260,6 +310,17 @@ export default function App() {
             <button type="button" aria-pressed={threeD} aria-label="3D 보기" onClick={() => setThreeD((v) => !v)} className={`${tool(threeD)} -mt-px`}>
               3D
             </button>
+            {/* 범례 */}
+            <div ref={legendRef} className="mt-2 self-end whitespace-nowrap border border-black bg-white px-2 py-1.5 text-[11px] leading-[1.6]">
+              <p className="flex items-center gap-1.5">
+                <span aria-hidden className="block h-2.5 w-2.5 rounded-full border-[1.5px] border-black bg-white" />
+                상점가
+              </p>
+              <p className="flex items-center gap-1.5">
+                <span aria-hidden className="block h-2.5 w-2.5 bg-black" />
+                MT 장소
+              </p>
+            </div>
           </div>
 
           <CardStrip ref={stripRef} places={order} selectedId={selectedId} onSelect={select} onOpen={open} />
@@ -273,7 +334,7 @@ export default function App() {
 
       <PlaceSheet
         place={selected}
-        index={selected ? order.findIndex((p) => p.id === selected.id) : 0}
+        index={selected ? Math.max(0, order.findIndex((p) => p.id === selected.id)) : 0}
         total={order.length}
         prev={prev}
         next={next}

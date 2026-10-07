@@ -116,7 +116,7 @@ function TiltPin({ place, x, y, on, dim, onPick }) {
   )
 }
 
-const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, activeIds, insets, blocked = [], fitKey, threeD, me, onPick, onLoadError }, ref) {
+const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, activeIds, insets, blocked = [], fitKey, fitSkipFocus = false, threeD, me, onPick, onLoadError }, ref) {
   const [loading, error] = useKakaoLoader({ appkey: appKey })
   const outerRef = useRef(null)
   const mapRef = useRef(null)
@@ -162,14 +162,14 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
   }, [loading, redraw])
 
   // ----- 화면 맞추기 (시트·패널에 가리지 않는 영역 기준) -----
-  // labelRight: 핀 오른쪽으로 뻗는 이름표 몫 (MT 핀은 이름이 늘 붙어 있다)
-  const fitPlaces = useCallback((list, labelRight = 0) => {
+  // 여백: 위는 제목·필터 아래, 아래는 카드 줄·탭바 위, 좌우 80px (MT 이름표가 화면 밖으로 잘리지 않게)
+  const fitPlaces = useCallback((list) => {
     const map = mapRef.current
     if (!map || !list.length) return
     const b = new kakao.maps.LatLngBounds()
     list.forEach((p) => b.extend(new kakao.maps.LatLng(p.lat, p.lng)))
-    const { top, right, bottom, left } = insetsRef.current
-    map.setBounds(b, top + 24, right + 16 + labelRight, bottom + 24, left + 24)
+    const { top, right, bottom } = insetsRef.current
+    map.setBounds(b, top + 8, Math.max(80, right), bottom + 4, 80)
   }, [])
 
   // 보이는 영역의 가운데에 좌표가 오도록 이동
@@ -218,13 +218,14 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
     [],
   )
 
-  // 처음 화면과 칩 전환: 정해진 장소들이 다 보이게
-  const fitList = fitKey?.split(':')[0]
+  // 처음 화면과 필터 전환: 보이는 핀이 다 들어오게 (places는 이미 필터된 목록)
+  // 별관(식물의정석)은 3km 떨어져 있어서 범위에서 뺀다
+  // 필터를 눌러 맨 앞 카드가 골라졌을 때는 그 카드로 지도를 옮기지 않는다 (범위가 우선)
+  const fitSelected = useRef(null)
   useEffect(() => {
     if (!mapReady) return
-    // 전체: 상점가와 MT 장소가 다 보이게 (별관은 3km 떨어져 있어서 범위에서 뺀다. 이름표는 겹치지 않는 쪽으로 따로 놓는다)
-    if (fitList === 'all') fitPlaces(places.filter((p) => p.kind !== 'annex'))
-    else fitPlaces(places.filter((p) => p.kind === 'shop'))
+    fitPlaces(places.filter((p) => p.kind !== 'annex'))
+    fitSelected.current = fitSkipFocus ? selectedId : null
   }, [fitKey, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 고르면 보이는 영역 가운데로. 시트 높이가 바뀌어도 다시 맞춘다
@@ -233,6 +234,8 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
   // 멀리서 보고 있었으면 고른 곳 근처로 확대한다 (상점가는 골목이 보이게, MT 장소는 주변이 보이게)
   useEffect(() => {
     if (!mapReady || !selected) return undefined
+    if (fitSelected.current === selectedId) return undefined
+    fitSelected.current = null
     const map = mapRef.current
     const maxLevel = selected.kind === 'mt' ? 5 : 3
     if (!enlargedRef.current && map.getLevel() > maxLevel) map.setLevel(maxLevel)
@@ -361,7 +364,17 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
         return { id: p.id, name: p.name, x: pt.x, y: pt.y }
       })
     const area = { x1: insets.left + 4, y1: insets.top, x2: el.clientWidth - 4, y2: el.clientHeight - insets.bottom }
-    sides = placeLabels(items, area, blocked)
+    // 상점가 핀(꼬리 8px 위에 지름 28, 고르면 34)과 고른 상점가 핀의 이름표도 피한다
+    const shopRects = places
+      .filter((p) => p.kind !== 'mt')
+      .flatMap((p) => {
+        const pt = proj.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng))
+        const r = p.id === selectedId ? 17 : 14
+        const cy = pt.y - 8 - r
+        const pin = { x1: pt.x - r, x2: pt.x + r, y1: cy - r, y2: cy + r }
+        return p.id === selectedId ? [pin, { x1: pt.x + r + 4, x2: pt.x + r + 4 + labelWidth(p.name), y1: cy - 8, y2: cy + 8 }] : [pin]
+      })
+    sides = placeLabels(items, area, [...blocked, ...shopRects])
   }
   // 3D 핀은 화면 아래쪽(가까운 쪽)일수록 나중에 그려서 위에 오게 한다
   const pins3d = inTilt && mapReady
