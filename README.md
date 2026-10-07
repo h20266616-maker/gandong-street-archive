@@ -23,15 +23,15 @@
 export const notices = [
   // 표형: rows는 [라벨, 값] 목록. 값이 크게 보여서 시간·장소가 한눈에 들어온다
   { id: 'meet', pin: true, label: '집합', title: '집합 안내', rows: [['언제', '10월 9일 (금) 오전 10:20까지'], ['어디', 'CLC 희망터 앞']] },
-  // 체크리스트형: items가 있으면 누를 때마다 체크된다 (각자 핸드폰에 저장, 머리에 "2 / 5 챙김")
+  // 목록형: items가 검은 네모 글머리표 목록으로 보인다
   { id: 'prep', pin: true, label: '준비물', title: '이것만 챙겨 오세요', items: ['세면도구', '여벌 옷', '충전기'], text: '물감과 붓은 동아리에서 준비해요' },
   // 글만 있는 형: text가 회색 바탕 강조 문단으로 보인다
-  { id: 'meet', pin: false, label: '공지', title: '집합 안내', text: '10월 9일 10시까지 학교 정문으로 모여 주세요' },
+  { id: 'bus', pin: false, label: '공지', title: '집합 안내', text: '10월 9일 10시까지 학교 정문으로 모여 주세요' },
 ]
 ```
 
 - `pin: true`면 맨 위에 고정되고 왼쪽에 검은 막대, 탭바 공지 아이콘에 점이 찍힌다
-- `id`는 체크 상태를 저장하는 이름이라 바꾸면 체크가 초기화된다. 예전 형식 `{ pin, label, text }`도 그대로 보인다
+- `id`는 공지를 구별하는 이름이라 공지끼리 겹치지 않게 쓴다. 예전 형식 `{ pin, label, text }`도 그대로 보인다
 
 기술: React + Vite + Tailwind CSS (JavaScript), 카카오맵(react-kakao-maps-sdk). 배포는 Vercel 정적 사이트.
 
