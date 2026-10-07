@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { stores as initialStores } from './data/stores.js'
-import { isMtId, mtPlaces as initialMt } from './data/mtPlaces.js'
-import { FILTERS, TABS, cardOrder, inFilter, placeNeighbors, toPlaces } from './data/places.js'
+import { mtPlaces as initialMt } from './data/mtPlaces.js'
+import { signPlaces as initialSigns } from './data/signPlaces.js'
+import { FILTERS, TABS, cardOrder, inFilter, onMap as hasPin, placeNeighbors, toPlaces } from './data/places.js'
 import { site } from './data/site.js'
 import KakaoMain from './components/KakaoMain.jsx'
 import TabBar from './components/TabBar.jsx'
@@ -15,16 +16,17 @@ const params = new URLSearchParams(window.location.search)
 // URL에 ?edit 가 있을 때만 카카오맵 핀 드래그 + 좌표 출력
 const isEditMode = params.has('edit')
 const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY
-const validId = (id) => initialStores.some((s) => s.id === id) || isMtId(id)
+const initialPlaces = toPlaces(initialStores, initialMt, initialSigns)
+const validId = (id) => initialPlaces.some((p) => p.id === id)
 const TAB_KEYS = TABS.map((t) => t.key)
 const linkShop = validId(params.get('shop')) ? params.get('shop') : null
 // 처음 탭: ?shop= 이 있으면 지도 탭에서 그 장소 상세. 아니면 ?tab=, 없으면 지도 (예전 링크의 tab=all은 지도로)
 const initialTab = linkShop ? 'map' : TAB_KEYS.includes(params.get('tab')) ? params.get('tab') : 'map'
 // 지도 필터: ?f=all|shop|mt. 링크로 연 장소가 그 필터에서 숨는 쪽이면 전체로
 const FILTER_KEYS = FILTERS.map((f) => f.key)
-const linkKind = linkShop ? (isMtId(linkShop) ? 'mt' : 'shop') : null
+const linkPlace = initialPlaces.find((p) => p.id === linkShop)
 const qf = params.get('f')
-const initialFilter = FILTER_KEYS.includes(qf) && (!linkKind || qf === 'all' || qf === linkKind) ? qf : 'all'
+const initialFilter = FILTER_KEYS.includes(qf) && (!linkPlace || inFilter(qf, linkPlace)) ? qf : 'all'
 
 function useMedia(query) {
   const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
@@ -46,6 +48,7 @@ const tool = (on = false) => `flex h-11 w-11 items-center justify-center border 
 export default function App() {
   const [stores, setStores] = useState(initialStores)
   const [mts, setMts] = useState(initialMt)
+  const [signs, setSigns] = useState(initialSigns)
   const [tab, setTab] = useState(initialTab)
   const [selectedId, setSelectedId] = useState(linkShop)
   const [detailOpen, setDetailOpen] = useState(Boolean(linkShop))
@@ -64,11 +67,12 @@ export default function App() {
   const stripRef = useRef(null)
   const watchId = useRef(null)
 
-  const places = useMemo(() => toPlaces(stores, mts), [stores, mts])
+  const places = useMemo(() => toPlaces(stores, mts, signs), [stores, mts, signs])
   const shown = useMemo(() => places.filter((p) => inFilter(filter, p)), [places, filter])
   const order = useMemo(() => cardOrder(shown), [shown])
   const shownIds = useMemo(() => new Set(shown.map((p) => p.id)), [shown])
-  const counts = useMemo(() => ({ shop: places.filter((p) => inFilter('shop', p)).length, mt: places.filter((p) => inFilter('mt', p)).length }), [places])
+  const pins = useMemo(() => shown.filter(hasPin), [shown]) // 좌표 없는 곳은 카드에만
+  const counts = useMemo(() => Object.fromEntries(FILTERS.filter((f) => f.key !== 'all').map((f) => [f.key, places.filter((p) => inFilter(f.key, p)).length])), [places])
   const selected = places.find((p) => p.id === selectedId) ?? null
   const { prev, next } = selected ? placeNeighbors(order, selected.id) : {}
 
@@ -94,6 +98,11 @@ export default function App() {
   }, [])
 
   const select = useCallback((id) => setSelectedId(id), [])
+  // 좌표가 아직 없는 곳을 고르면 지도는 그대로 두고 알려 준다
+  const selectedNoPin = selected && !hasPin(selected)
+  useEffect(() => {
+    if (selectedNoPin && tab === 'map') showToast('지도 위치 확인 중이에요')
+  }, [selectedId]) // eslint-disable-line react-hooks/exhaustive-deps
   const open = useCallback((id) => {
     setSelectedId(id)
     setDetailOpen(true)
@@ -215,13 +224,19 @@ export default function App() {
             <EditMap
               appKey={KAKAO_MAP_KEY}
               stores={stores}
-              mtPlaces={mts}
+              mtPlaces={[...mts, ...signs.filter(hasPin)]}
               onMove={(id, lat, lng) => {
                 const moved = moveIn(stores, id, lat, lng)
                 setStores(moved)
                 console.log(toSource('stores', moved))
               }}
               onMoveMt={(id, lat, lng) => {
+                if (signs.some((p) => p.id === id)) {
+                  const moved = moveIn(signs, id, lat, lng)
+                  setSigns(moved)
+                  console.log(toSource('signPlaces', moved))
+                  return
+                }
                 const moved = moveIn(mts, id, lat, lng)
                 setMts(moved)
                 console.log(toSource('mtPlaces', moved))
@@ -233,11 +248,11 @@ export default function App() {
         </div>
         <section className="shrink-0 border-t border-black bg-black p-3 text-white">
           <p className="mb-2 text-xs font-semibold">
-            편집 모드 — 핀을 드래그해 놓으면 아래 내용이 바뀐다. 위 배열은 src/data/stores.js, 아래 배열은 src/data/mtPlaces.js에 교체.
+            편집 모드 — 핀을 드래그해 놓으면 아래 내용이 바뀐다. 배열마다 src/data/stores.js · mtPlaces.js · signPlaces.js에 교체.
           </p>
           <textarea
             readOnly
-            value={`${toSource('stores', stores)}\n\n${toSource('mtPlaces', mts)}`}
+            value={`${toSource('stores', stores)}\n\n${toSource('mtPlaces', mts)}\n\n${toSource('signPlaces', signs)}`}
             onFocus={(e) => e.target.select()}
             className="h-40 w-full resize-y border border-[#888] bg-black p-2 font-[inherit] text-[11px] leading-snug text-white"
           />
@@ -255,7 +270,7 @@ export default function App() {
         {KAKAO_MAP_KEY && !kakaoFailed ? (
           <KakaoMain
             appKey={KAKAO_MAP_KEY}
-            places={shown}
+            places={pins}
             selectedId={selectedId}
             activeIds={shownIds}
             insets={insets}
@@ -282,7 +297,7 @@ export default function App() {
               </small>
               <h1 className="truncate text-base font-bold">{site.title}</h1>
             </header>
-            <div role="radiogroup" aria-label="장소 종류" className="mt-2 inline-flex">
+            <div role="radiogroup" aria-label="장소 종류" className="no-scrollbar mt-2 flex max-w-full overflow-x-auto" style={{ overscrollBehaviorX: 'contain' }}>
               {FILTERS.map((f, i) => {
                 const on = filter === f.key
                 return (
@@ -292,7 +307,7 @@ export default function App() {
                     role="radio"
                     aria-checked={on}
                     onClick={() => chooseFilter(f.key)}
-                    className={`flex h-10 items-center gap-1 whitespace-nowrap border border-black px-3 text-[13px] ${i ? '-ml-px' : ''} ${on ? 'bg-black font-bold text-white' : 'bg-white text-black'}`}
+                    className={`flex h-10 shrink-0 items-center gap-1 whitespace-nowrap border border-black px-3 text-[13px] ${i ? '-ml-px' : ''} ${on ? 'bg-black font-bold text-white' : 'bg-white text-black'}`}
                   >
                     {f.label}
                     {counts[f.key] != null && <span className={`text-[11px] font-normal ${on ? 'text-[#aaa]' : 'text-[#888]'}`}>{counts[f.key]}</span>}
@@ -303,7 +318,7 @@ export default function App() {
           </div>
 
           {/* 오른쪽 위: 내 위치, 3D (확대·축소는 핀치) */}
-          <div className="fixed right-3 z-30 flex flex-col" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
+          <div className="fixed right-3 z-30 flex flex-col items-end" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
             <button type="button" aria-pressed={locating} aria-label="내 위치" onClick={toggleLocate} className={`${tool(locating)} text-lg`}>
               ◎
             </button>
@@ -319,6 +334,12 @@ export default function App() {
               <p className="flex items-center gap-1.5">
                 <span aria-hidden className="block h-2.5 w-2.5 bg-black" />
                 MT 장소
+              </p>
+              <p className="flex items-center gap-1.5">
+                <span aria-hidden className="block h-2.5 w-2.5 p-px">
+                  <span className="block h-full w-full rotate-45 border-[1.5px] border-black bg-white" />
+                </span>
+                간판
               </p>
             </div>
           </div>
@@ -347,7 +368,7 @@ export default function App() {
       <TabBar tab={tab} onTab={chooseTab} dot={{ notice: hasPinnedNotice }} />
 
       {toast && (
-        <div role="status" className="fixed left-1/2 z-[90] -translate-x-1/2 whitespace-nowrap bg-black px-4 py-3 text-sm text-white" style={{ top: 'calc(env(safe-area-inset-top) + 70px)' }}>
+        <div role="status" className="fixed left-1/2 z-[90] -translate-x-1/2 whitespace-nowrap bg-black px-4 py-3 text-sm text-white" style={{ top: onMap ? frame.top : 'calc(env(safe-area-inset-top) + 70px)' }}>
           {toast}
         </div>
       )}

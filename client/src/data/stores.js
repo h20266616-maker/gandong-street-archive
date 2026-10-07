@@ -1,7 +1,7 @@
 // 거리 순서대로 정렬된 가게 목록.
 // - slug: 사진 파일명에 쓰인 이름 (파일명 규칙: `${id}_${slug}_${순번}.jpg`)
 // - photoCount: public/photos 안의 사진 수 (npm run check:photos 로 검증)
-// - group: 'shop' (상점가). 세부 분류는 두지 않는다. memo: 상세에 라벨 없이 한 줄로 나오는 기록 (없으면 '')
+// - group: 'shop' (상점가). tags: 지도 필터 카테고리 (상점가는 모두 'shop', 간판 작업 가게는 'sign', MT 식사 장소는 'mt'도). memo: 상세에 라벨 없이 한 줄로 나오는 기록 (없으면 '')
 // - lat/lng: 카카오 주소 검색(번지 단위)으로 조회해 고정한 값. 런타임에는 조회하지 않는다.
 //   07은 306 번지가 검색되지 않아 우체국 옆에, 312의 세 가게(11·12·13)는 312 좌표를 가운데(12)로 두고
 //   도로 방향(북북동)을 따라 약 12m 간격으로 벌려 놓았다.
@@ -9,19 +9,19 @@
 // - annex: 상점가에서 떨어진 별관. 지도 첫 화면 범위에서 빠지고, 목록 맨 아래 '상점가 밖'에 나온다.
 // - lat/lng가 null인 가게는 목록에만 나오고 지도 핀은 숨겨진다.
 export const stores = [
-  { id: '01', group: 'shop', memo: '', name: '식물의정석', slug: '식물의정석', address: '간동면 유촌리 1043-4', photoCount: 7, lat: 38.045355, lng: 127.783793, note: '', annex: true, distanceNote: '상점가에서 서쪽 약 3km' },
-  { id: '02', group: 'shop', memo: '', name: '간동식육점', slug: '간동식육점', address: '간척월명로 300', photoCount: 3, lat: 38.054012, lng: 127.817375, note: '' },
-  { id: '03', group: 'shop', memo: '', name: '낭천고을', slug: '낭천고을', address: '간척월명로 302', photoCount: 4, lat: 38.054222, lng: 127.817429, note: '' },
-  { id: '04', group: 'shop', memo: '', name: '꽃돼지국밥', slug: '꽃돼지국밥', address: '간척월명로 304', photoCount: 2, lat: 38.054315, lng: 127.817465, note: '' },
-  { id: '05', group: 'shop', memo: '', name: '형제떡방앗간', slug: '형제떡방앗간', address: '간척월명로 304-6', photoCount: 2, lat: 38.054407, lng: 127.817704, note: '' },
-  { id: '06', group: 'shop', memo: '', name: '무래이커피 (MOORAEE COFFEE)', slug: '무래이커피', address: '간척월명로 305-1', photoCount: 3, lat: 38.054531, lng: 127.817186, note: '' },
-  { id: '07', group: 'shop', memo: '', name: '다올미용실', slug: '다올미용실', address: '간척월명로 306 부근', photoCount: 2, lat: 38.05458, lng: 127.81708, note: '우체국 옆' },
-  { id: '08', group: 'shop', memo: '', name: '간동우체국', slug: '간동우체국', address: '간척월명로 307', photoCount: 3, lat: 38.054629, lng: 127.816974, note: '' },
-  { id: '09', group: 'shop', memo: '', name: '서울식당', slug: '서울식당', address: '간척월명로 309', photoCount: 3, lat: 38.054964, lng: 127.817263, note: '생선구이·불고기' },
-  { id: '10', group: 'shop', memo: '붉은 기와지붕 아래 가정식 백반 뷔페.', name: '남가식당', slug: '남가식당', address: '간척월명로 311-1', photoCount: 4, lat: 38.05512, lng: 127.817338, note: '가정식백반' },
-  { id: '11', group: 'shop', memo: '', name: '오매가매', slug: '오매가매', address: '간척월명로 312', photoCount: 3, lat: 38.054983, lng: 127.817594, note: '닭도리탕·찌개' },
-  { id: '12', group: 'shop', memo: '', name: '또래오래 간동점', slug: '또래오래', address: '간척월명로 312', photoCount: 2, lat: 38.055084, lng: 127.817643, note: '오매가매 바로 옆' },
-  { id: '13', group: 'shop', memo: '', name: '미정이네', slug: '미정이네', address: '간척월명로 312', photoCount: 2, lat: 38.055185, lng: 127.817692, note: '김밥·라면·돈까스' },
+  { id: '01', group: 'shop', tags: ['shop', 'sign'], memo: '', name: '식물의정석', slug: '식물의정석', address: '간동면 유촌리 1043-4', photoCount: 7, lat: 38.045355, lng: 127.783793, note: '', annex: true, distanceNote: '상점가에서 서쪽 약 3km' },
+  { id: '02', group: 'shop', tags: ['shop'], memo: '', name: '간동식육점', slug: '간동식육점', address: '간척월명로 300', photoCount: 3, lat: 38.054012, lng: 127.817375, note: '' },
+  { id: '03', group: 'shop', tags: ['shop'], memo: '', name: '낭천고을', slug: '낭천고을', address: '간척월명로 302', photoCount: 4, lat: 38.054222, lng: 127.817429, note: '' },
+  { id: '04', group: 'shop', tags: ['shop'], memo: '', name: '꽃돼지국밥', slug: '꽃돼지국밥', address: '간척월명로 304', photoCount: 2, lat: 38.054315, lng: 127.817465, note: '' },
+  { id: '05', group: 'shop', tags: ['shop'], memo: '', name: '형제떡방앗간', slug: '형제떡방앗간', address: '간척월명로 304-6', photoCount: 2, lat: 38.054407, lng: 127.817704, note: '' },
+  { id: '06', group: 'shop', tags: ['shop', 'sign'], memo: '', name: '무래이커피 (MOORAEE COFFEE)', slug: '무래이커피', address: '간척월명로 305-1', photoCount: 3, lat: 38.054531, lng: 127.817186, note: '' },
+  { id: '07', group: 'shop', tags: ['shop'], memo: '', name: '다올미용실', slug: '다올미용실', address: '간척월명로 306 부근', photoCount: 2, lat: 38.05458, lng: 127.81708, note: '우체국 옆' },
+  { id: '08', group: 'shop', tags: ['shop'], memo: '', name: '간동우체국', slug: '간동우체국', address: '간척월명로 307', photoCount: 3, lat: 38.054629, lng: 127.816974, note: '' },
+  { id: '09', group: 'shop', tags: ['shop'], memo: '', name: '서울식당', slug: '서울식당', address: '간척월명로 309', photoCount: 3, lat: 38.054964, lng: 127.817263, note: '생선구이·불고기' },
+  { id: '10', group: 'shop', tags: ['shop'], memo: '붉은 기와지붕 아래 가정식 백반 뷔페.', name: '남가식당', slug: '남가식당', address: '간척월명로 311-1', photoCount: 4, lat: 38.05512, lng: 127.817338, note: '가정식백반' },
+  { id: '11', group: 'shop', tags: ['shop', 'mt'], memo: '', name: '오매가매', slug: '오매가매', address: '간척월명로 312', photoCount: 3, lat: 38.054983, lng: 127.817594, note: '닭도리탕·찌개' },
+  { id: '12', group: 'shop', tags: ['shop'], memo: '', name: '또래오래 간동점', slug: '또래오래', address: '간척월명로 312', photoCount: 2, lat: 38.055084, lng: 127.817643, note: '오매가매 바로 옆' },
+  { id: '13', group: 'shop', tags: ['shop'], memo: '', name: '미정이네', slug: '미정이네', address: '간척월명로 312', photoCount: 2, lat: 38.055185, lng: 127.817692, note: '김밥·라면·돈까스' },
 ]
 
 export const hasCoords = (s) => s.lat != null && s.lng != null

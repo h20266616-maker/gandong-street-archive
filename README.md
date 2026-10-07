@@ -8,11 +8,12 @@
 
 - 지도: 카카오맵을 원래 색으로 화면 전체에. 왼쪽 위 제목, 오른쪽 위 `◎ 내 위치` · `3D` (확대·축소는 핀치)
 - 지도 아래 장소 카드 줄: 넘기면 그 장소로 지도가 따라가고, 핀을 누르면 카드가 따라온다. 고른 카드·핀을 한 번 더 누르면 상세
-  - 순서: 상점가 02~13 → 식물의정석 → D 간동종합문화센터 → B 너래안 → A 숙소 → C 스테이 수페
+  - 순서: 상점가 02~13 → 식물의정석 → D 간동종합문화센터 → A 숙소 → 간판 S1 너래안 → S2 스테이 수페 → S3 오월농원
 - 상세: 아래에서 올라오는 전체 화면 (넓은 화면은 오른쪽 440px). 사진 넘기기, `길찾기`(카카오맵 앱), 이전·다음, 아래로 사진 전체. 맨 위에서 아래로 끌거나 ESC로 닫는다
 - 타임테이블: 실제 일정(참가자용 타임테이블.xlsx). `전체 · 상점가 거리 · 모자이크 · 간판` 팀을 고르면 우리 팀만의 일정이 표시되고, 고른 팀은 기억된다(`?tab=tt&team=street`도 된다). MT 당일엔 지금 일정이 반전된다
 - 타임테이블 `[지도]`는 지도 탭에서 그 장소를(숙소 일정 → A, 현장 스케치 → 02. 마을회관은 아직 지도에 없음), 상점가 그리드는 그 장소 상세를 연다
-- 지도 필터: 제목 아래 `전체 · 상점가 13 · MT 장소 4`. 고르면 그 종류 핀·카드만 남고 지도 범위가 다시 맞춰진다(상점가는 별관 제외). `?tab=map&f=all|shop|mt`
+- 지도 필터: 제목 아래 `전체 · 상점가 13 · MT 장소 3 · 간판 5`. 장소마다 `tags`(여러 개 가능)로 거르고, 고르면 그 장소 핀·카드만 남고 지도 범위가 다시 맞춰진다(간판 필터는 식물의정석까지). `?tab=map&f=all|shop|mt|sign`
+- 핀 모양: 상점가 ○ 번호, MT 장소(A·D) ■, 간판 전용 장소(S1~) ◇. 상점가 가게는 다른 태그가 있어도 ○이고 부제에 `상점가 · 간판`처럼 붙는다. 좌표가 없는 곳(S3 오월농원)은 카드에만 나오고, `signPlaces.js`에 좌표를 넣으면 핀이 생긴다
 - 링크: `?tab=tt|map|shop|notice|call`, `?shop=06`이면 지도 탭에서 그 장소 상세가 바로 열린다 (단톡방 공유용)
 - UI는 흑백, 사진은 원본 색. 누를 수 있는 것은 모두 44px 이상
 
@@ -48,7 +49,8 @@ gandong-street-archive/
 │  │  └─ geocode.js        ← npm run geocode (개발용 좌표 조회)
 │  └─ src/
 │     ├─ data/stores.js    ← 가게 데이터 (이름, 주소, 사진 수, 좌표)
-│     ├─ data/mtPlaces.js  ← MT 장소 4곳 (숙소·MT 장소·작업)
+│     ├─ data/mtPlaces.js  ← MT 장소 2곳 (A 숙소 · D 작업 장소)
+│     ├─ data/signPlaces.js ← 간판 장소 (S1 너래안 · S2 스테이 수페 · S3 오월농원)
 │     ├─ data/timetable.js ← 타임테이블 (시간·일정·장소 연결)
 │     ├─ data/notice.js    ← 공지 (지금은 비어 있음)
 │     ├─ data/contacts.js  ← 비상연락망
@@ -96,7 +98,7 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 - **타임테이블**: `client/src/data/timetable.js`는 엑셀을 그대로 옮긴 파일이다 (`{ all, street, mosaic, sign }`, 행은 `{ time, title, note, team }`, 노란 칸 = `team: true`). 엑셀이 바뀌면 이 파일을 통째로 교체한다. `[지도]` 연결은 `client/src/components/Pages.jsx`의 `PLACE_BY_TITLE`
 - **공지·비상연락망**: `client/src/data/notice.js`, `contacts.js`
 - **한 줄 기록**: `stores.js` 각 가게의 `memo`. 상세 머리에 한 줄로 나오고, 비어 있으면 숨김
-- **MT 장소 사진**: `client/public/photos/mt/`에 `A_월남파병용사만남의장_1.jpg`처럼 넣고 `mtPlaces.js`의 `photoCount`만 고친다. 0장이면 `사진 준비 중` 카드가 나온다
+- **MT·간판 장소 사진**: `client/public/photos/mt/`(또는 `photos/sign/`)에 `A_월남파병용사만남의장_1.jpg`처럼 넣고 `mtPlaces.js`(또는 `signPlaces.js`)의 `photoCount`만 고친다. 0장이면 `사진 준비 중` 카드가 나온다
 - **사진 추가**: `client/public/photos/`에 `번호_slug_순번.jpg` 규칙으로 넣고 `stores.js`의 `photoCount`를 고친 뒤 `npm run thumbs` → `npm run check:photos`
 - **가게 추가·수정**: `client/src/data/stores.js`. `slug`는 사진 파일명에 쓰인 이름 (예: `무래이커피 (MOORAEE COFFEE)` → `무래이커피`)
 
@@ -105,9 +107,9 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 1. `npm run dev` 후 `http://localhost:5173/?edit` 접속
 2. 핀을 드래그해서 실제 위치에 놓는다. 좌표가 없는 가게는 회색 핀으로 나온다
 3. 놓을 때마다 화면 아래 검은 칸과 브라우저 콘솔에 `export const stores = [...]`가 출력된다
-4. `stores.js`의 `stores` 배열, `mtPlaces.js`의 `mtPlaces` 배열을 그 내용으로 교체
+4. `stores.js`의 `stores`, `mtPlaces.js`의 `mtPlaces`, `signPlaces.js`의 `signPlaces` 배열을 그 내용으로 교체
 
-MT 장소는 상점가에서 멀어서 첫 화면 밖에 있다. 지도 왼쪽 위 `A · B · C` 버튼으로 옮겨 가서 끈다.
+MT·간판 장소는 상점가에서 멀어서 첫 화면 밖에 있다. 지도 왼쪽 위 `A · D · S1 · S2` 버튼으로 옮겨 가서 끈다 (좌표가 없는 S3는 `signPlaces.js`에 좌표를 먼저 넣어야 나온다).
 
 `?edit`가 없는 일반 방문자에게는 드래그·출력 UI가 보이지 않는다.
 

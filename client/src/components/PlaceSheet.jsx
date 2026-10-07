@@ -109,9 +109,13 @@ export default function PlaceSheet({ place, index, total, prev, next, open, onCl
       </div>
 
       <div className="mx-5 grid grid-cols-2 border border-black">
-        <a href={directionsUrl(place)} target="_blank" rel="noopener noreferrer" className="flex h-14 items-center justify-center bg-black text-base font-bold text-white">
-          길찾기
-        </a>
+        {place.lat != null && place.lng != null ? (
+          <a href={directionsUrl(place)} target="_blank" rel="noopener noreferrer" className="flex h-14 items-center justify-center bg-black text-base font-bold text-white">
+            길찾기
+          </a>
+        ) : (
+          <span className="flex h-14 items-center justify-center bg-[#f5f5f5] text-base font-bold text-[#888]">위치 확인 중</span>
+        )}
         <button type="button" onClick={onClose} className="flex h-14 items-center justify-center border-l border-black text-base font-bold">
           지도에서 보기
         </button>

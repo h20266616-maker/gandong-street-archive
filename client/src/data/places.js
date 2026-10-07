@@ -1,6 +1,7 @@
 // 상점가 가게와 MT 장소를 목록·지도·상세에서 같은 모양으로 다루기 위한 묶음
 import { fullAddress, photoUrls, shortAddress, thumbOf } from './stores.js'
 import { mtPhotoUrls, mtShortAddress } from './mtPlaces.js'
+import { signPhotoUrls, signShortAddress } from './signPlaces.js'
 
 // 아래 탭바 (엄지로 누르기 쉽게 화면 아래). 처음엔 지도
 export const TABS = [
@@ -11,53 +12,78 @@ export const TABS = [
   { key: 'call', label: '비상연락망' },
 ]
 
-// 지도 아래 카드 줄 순서: 상점가 02~13 → 식물의정석(01) → D → B → A → C
-const MT_ORDER = ['D', 'B', 'A', 'C']
+// 지도 아래 카드 줄 순서: 상점가 02~13 → 식물의정석(01) → D → A → 간판 S1, S2, S3
+const MT_ORDER = ['D', 'A']
 export const cardOrder = (places) => [
   ...places.filter((p) => p.kind === 'shop'),
   ...places.filter((p) => p.kind === 'annex'),
   ...MT_ORDER.map((id) => places.find((p) => p.id === id)).filter(Boolean),
+  ...places.filter((p) => p.kind === 'mt' && !MT_ORDER.includes(p.id)),
+  ...places.filter((p) => p.kind === 'sign'),
 ]
 
-// 지도 탭 카테고리 필터. 상점가는 별관(식물의정석)까지 포함
+// 지도 탭 카테고리 필터. 장소 하나가 여러 카테고리에 들 수 있다 (tags)
 export const FILTERS = [
   { key: 'all', label: '전체' },
   { key: 'shop', label: '상점가' },
   { key: 'mt', label: 'MT 장소' },
+  { key: 'sign', label: '간판' },
 ]
-export const inFilter = (f, p) => f === 'all' || (f === 'mt' ? p.kind === 'mt' : p.kind !== 'mt')
+export const inFilter = (f, p) => f === 'all' || p.tags.includes(f)
+
+// 좌표가 있어야 지도에 핀이 생긴다
+export const onMap = (p) => p.lat != null && p.lng != null
+
+// 상점가 가게에 붙은 다른 태그를 부제에 쓸 때의 이름: "상점가 · 간판 · …", "상점가 · MT 식사 · …"
+const SHOP_TAG_LABEL = { sign: '간판', mt: 'MT 식사' }
 
 // 목록 행·상세 부제: "상점가 · 간척월명로 300 · 사진 3", "숙소 · 죽엽산길 81-68"
 const subtitle = (head, short, n) => [head, short, n ? `사진 ${n}` : null].filter(Boolean).join(' · ')
 
-export const toPlaces = (stores, mts) => [
+const card = (p, photos) => ({ ...p, photos, thumb: photos[0] ? thumbOf(photos[0]) : null })
+
+export const toPlaces = (stores, mts, signs = []) => [
   ...stores.map((s) => {
     const photos = photoUrls(s)
-    return {
+    const tags = s.tags ?? ['shop']
+    const head = [s.annex ? '상점가 밖' : '상점가', ...tags.filter((t) => t !== 'shop').map((t) => SHOP_TAG_LABEL[t])].join(' · ')
+    return card({
       ...s,
+      tags,
       kind: s.annex ? 'annex' : 'shop',
       label: s.id,
       short: shortAddress(s),
-      sub: subtitle(s.annex ? '상점가 밖' : '상점가', shortAddress(s), photos.length),
-      subNoPhotos: subtitle(s.annex ? '상점가 밖' : '상점가', shortAddress(s), 0),
+      sub: subtitle(head, shortAddress(s), photos.length),
+      subNoPhotos: subtitle(head, shortAddress(s), 0),
       full: fullAddress(s),
-      photos,
-      thumb: photos[0] ? thumbOf(photos[0]) : null,
-    }
+    }, photos)
   }),
   ...mts.map((p) => {
     const photos = mtPhotoUrls(p)
-    return {
+    return card({
       ...p,
+      tags: p.tags ?? ['mt'],
       kind: 'mt',
       label: `MT · ${p.id}`,
       short: mtShortAddress(p),
       sub: subtitle(p.type, mtShortAddress(p), photos.length),
       subNoPhotos: subtitle(p.type, mtShortAddress(p), 0),
       full: `강원특별자치도 ${p.address.replace(/\s*\(.*\)$/, '')}`,
-      photos,
-      thumb: photos[0] ? thumbOf(photos[0]) : null,
-    }
+    }, photos)
+  }),
+  ...signs.map((p) => {
+    const photos = signPhotoUrls(p)
+    const short = onMap(p) ? signShortAddress(p) || '' : '위치 확인 필요'
+    return card({
+      ...p,
+      tags: p.tags ?? ['sign'],
+      kind: 'sign',
+      label: `간판 · ${p.id}`,
+      short,
+      sub: subtitle('간판', short, photos.length),
+      subNoPhotos: subtitle('간판', short, 0),
+      full: p.address ? `강원특별자치도 ${p.address}` : '',
+    }, photos)
   }),
 ]
 

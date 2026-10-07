@@ -67,23 +67,33 @@ function useNativeClick(onClick) {
   return ref
 }
 
+// 핀 머리: 대표 종류로 정한다. MT 장소는 검은 사각, 간판 전용 장소는 흰 마름모 (상점가 가게는 태그가 더 있어도 원)
+const PinHead = ({ place, on }) =>
+  place.kind === 'sign' ? (
+    <span className={`pin-sign ${on ? 'is-on' : ''}`}>
+      <span>{place.id}</span>
+    </span>
+  ) : (
+    <span className={`pin-mt ${on ? 'is-on' : ''}`}>{place.id}</span>
+  )
+
 // 평면 핀. 보이는 크기보다 사방 8px 넓은 터치 영역.
 // 이름표는 상자 밖으로 띄운다(absolute): 상자 크기에 들어가면 카카오가 '핀 + 이름표' 전체의 가운데를 좌표에 맞춰서 핀이 밀린다
 function FlatPin({ place, on, dim, side = 'right', onPick }) {
   const ref = useNativeClick(() => onPick(place.id))
-  const isMt = place.kind === 'mt'
+  const square = place.kind === 'mt' || place.kind === 'sign'
   return (
     <button ref={ref} type="button" aria-label={`${place.label} ${place.name}`} className={`pin-hit ${dim ? 'is-dim' : ''}`}>
-      {isMt ? (
+      {square ? (
         <span className="relative block">
-          <span className={`pin-mt ${on ? 'is-on' : ''}`}>{place.id}</span>
+          <PinHead place={place} on={on} />
           <span className={`pin-name pin-name-side side-${side}`}>{place.name}</span>
         </span>
       ) : (
         <span className="flex flex-col items-center">
           <span className="relative block">
             <span className={`pin-shop ${on ? 'is-on' : ''}`}>{place.id}</span>
-            {on && <span className="pin-name pin-name-side">{place.name}</span>}
+            {on && <span className={`pin-name pin-name-side side-${side}`}>{place.name}</span>}
           </span>
           <span className="pin-tail" />
         </span>
@@ -94,7 +104,7 @@ function FlatPin({ place, on, dim, side = 'right', onPick }) {
 
 // 3D 모드 핀: 기울인 지도 위에 따로 그린다. 바닥 점에서 막대가 서고 머리에 번호
 function TiltPin({ place, x, y, on, dim, onPick }) {
-  const isMt = place.kind === 'mt'
+  const isMt = place.kind === 'mt' || place.kind === 'sign' // 이름이 늘 붙는 장소
   const stick = isMt ? 56 : 40
   return (
     <button
@@ -106,7 +116,7 @@ function TiltPin({ place, x, y, on, dim, onPick }) {
     >
       <span className="flex flex-col items-center">
         <span className="relative block">
-          {isMt ? <span className={`pin-mt ${on ? 'is-on' : ''}`}>{place.id}</span> : <span className={`pin-shop ${on ? 'is-on' : ''}`}>{place.id}</span>}
+          {isMt ? <PinHead place={place} on={on} /> : <span className={`pin-shop ${on ? 'is-on' : ''}`}>{place.id}</span>}
           {(isMt || on) && <span className="pin-name pin-name-side">{place.name}</span>}
         </span>
         <span className="pin-stick" style={{ height: stick }} />
@@ -218,13 +228,13 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
     [],
   )
 
-  // 처음 화면과 필터 전환: 보이는 핀이 다 들어오게 (places는 이미 필터된 목록)
-  // 별관(식물의정석)은 3km 떨어져 있어서 범위에서 뺀다
+  // 처음 화면과 필터 전환: 보이는 핀이 다 들어오게 (places는 이미 필터되고 좌표 있는 곳만)
+  // 별관(식물의정석)은 3km 떨어져 있어서 범위에서 뺀다. 간판 필터에서는 간판 장소라서 넣는다
   // 필터를 눌러 맨 앞 카드가 골라졌을 때는 그 카드로 지도를 옮기지 않는다 (범위가 우선)
   const fitSelected = useRef(null)
   useEffect(() => {
     if (!mapReady) return
-    fitPlaces(places.filter((p) => p.kind !== 'annex'))
+    fitPlaces(fitKey?.startsWith('sign:') ? places : places.filter((p) => p.kind !== 'annex'))
     fitSelected.current = fitSkipFocus ? selectedId : null
   }, [fitKey, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -237,7 +247,7 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
     if (fitSelected.current === selectedId) return undefined
     fitSelected.current = null
     const map = mapRef.current
-    const maxLevel = selected.kind === 'mt' ? 5 : 3
+    const maxLevel = selected.kind === 'mt' || selected.kind === 'sign' ? 5 : 3
     if (!enlargedRef.current && map.getLevel() > maxLevel) map.setLevel(maxLevel)
     const t = setTimeout(() => focusOn(selected.lat, selected.lng), 60)
     return () => clearTimeout(t)
@@ -358,7 +368,7 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
   if (!inTilt && mapReady && el) {
     const proj = mapRef.current.getProjection()
     const items = places
-      .filter((p) => p.kind === 'mt')
+      .filter((p) => p.kind === 'mt' || p.kind === 'sign')
       .map((p) => {
         const pt = proj.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng))
         return { id: p.id, name: p.name, x: pt.x, y: pt.y }
@@ -366,15 +376,20 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
     const area = { x1: insets.left + 4, y1: insets.top, x2: el.clientWidth - 4, y2: el.clientHeight - insets.bottom }
     // 상점가 핀(꼬리 8px 위에 지름 28, 고르면 34)과 고른 상점가 핀의 이름표도 피한다
     const shopRects = places
-      .filter((p) => p.kind !== 'mt')
+      .filter((p) => p.kind === 'shop' || p.kind === 'annex')
       .flatMap((p) => {
         const pt = proj.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng))
         const r = p.id === selectedId ? 17 : 14
         const cy = pt.y - 8 - r
         const pin = { x1: pt.x - r, x2: pt.x + r, y1: cy - r, y2: cy + r }
-        return p.id === selectedId ? [pin, { x1: pt.x + r + 4, x2: pt.x + r + 4 + labelWidth(p.name), y1: cy - 8, y2: cy + 8 }] : [pin]
+        if (p.id !== selectedId) return [pin]
+        // 고른 상점가 핀 이름표: 오른쪽에 안 들어가면 왼쪽으로 (긴 이름이 화면 밖으로 잘리지 않게)
+        const w = labelWidth(p.name)
+        const right = pt.x + r + 4 + w <= area.x2
+        sides[p.id] = right ? 'right' : 'left'
+        return [pin, right ? { x1: pt.x + r + 4, x2: pt.x + r + 4 + w, y1: cy - 8, y2: cy + 8 } : { x1: pt.x - r - 4 - w, x2: pt.x - r - 4, y1: cy - 8, y2: cy + 8 }]
       })
-    sides = placeLabels(items, area, [...blocked, ...shopRects])
+    sides = { ...sides, ...placeLabels(items, area, [...blocked, ...shopRects]) }
   }
   // 3D 핀은 화면 아래쪽(가까운 쪽)일수록 나중에 그려서 위에 오게 한다
   const pins3d = inTilt && mapReady
@@ -410,7 +425,7 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
         >
           {!inTilt &&
             places.map((p) => (
-              <CustomOverlayMap key={p.id} position={{ lat: p.lat, lng: p.lng }} xAnchor={0.5} yAnchor={p.kind === 'mt' ? 0.5 : 1} zIndex={p.id === selectedId ? 4 : p.kind === 'mt' ? 3 : 2} clickable>
+              <CustomOverlayMap key={p.id} position={{ lat: p.lat, lng: p.lng }} xAnchor={0.5} yAnchor={p.kind === 'mt' || p.kind === 'sign' ? 0.5 : 1} zIndex={p.id === selectedId ? 4 : p.kind === 'mt' || p.kind === 'sign' ? 3 : 2} clickable>
                 <FlatPin place={p} on={p.id === selectedId} dim={!activeIds.has(p.id)} side={sides[p.id]} onPick={onPick} />
               </CustomOverlayMap>
             ))}
