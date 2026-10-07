@@ -25,7 +25,8 @@ const ICONS = {
 }
 
 // 화면 아래 탭바: 높이 60 + 홈 인디케이터 자리, 5등분
-export default function TabBar({ tab, onTab }) {
+// dot: 탭 키 → 아이콘 오른쪽 위 작은 검은 점 (고정 공지가 있으면 공지 탭에)
+export default function TabBar({ tab, onTab, dot = {} }) {
   return (
     <nav
       aria-label="탭"
@@ -43,9 +44,12 @@ export default function TabBar({ tab, onTab }) {
             className={`relative flex flex-col items-center justify-center gap-[3px] text-[11px] ${on ? 'font-bold text-black' : 'text-[#888]'}`}
           >
             {on && <span aria-hidden className="absolute -top-px left-[22%] right-[22%] h-[3px] bg-black" />}
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={on ? '#000' : '#888'} strokeWidth={on ? 2 : 1.6} aria-hidden>
-              {ICONS[t.key]}
-            </svg>
+            <span className="relative">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke={on ? '#000' : '#888'} strokeWidth={on ? 2 : 1.6} aria-hidden>
+                {ICONS[t.key]}
+              </svg>
+              {dot[t.key] && <span aria-label="새 공지" className="absolute -right-1 -top-0.5 block h-1.5 w-1.5 rounded-full bg-black" />}
+            </span>
             {t.label}
           </button>
         )

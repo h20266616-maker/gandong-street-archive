@@ -17,9 +17,19 @@
 
 ### 공지 올리기
 
-1. `client/src/data/notice.js`의 `notices = []` 배열에 항목을 넣는다
-2. 형식은 `{ pin, label, text }` — 예: `{ pin: true, label: '공지', text: '10월 9일 9시, 한림대학교 정문 집합' }`
-3. `pin: true`면 맨 위에 고정되고 왼쪽에 검은 선이 생긴다. 저장 후 push하면 배포된다
+`client/src/data/notice.js`의 `notices` 배열에 항목을 넣고 push하면 배포된다. 형식은 `{ id, pin, label, title, items?, text? }`.
+
+```js
+export const notices = [
+  // 체크리스트형: items가 있으면 누를 때마다 체크된다 (각자 핸드폰에 저장, 머리에 "2 / 5 챙김")
+  { id: 'prep', pin: true, label: '준비물', title: '이것만 챙겨 오세요', items: ['세면도구', '여벌 옷', '충전기'], text: '물감과 붓은 동아리에서 준비해요' },
+  // 글만 있는 형: text가 회색 바탕 강조 문단으로 보인다
+  { id: 'meet', pin: false, label: '공지', title: '집합 안내', text: '10월 9일 10시까지 학교 정문으로 모여 주세요' },
+]
+```
+
+- `pin: true`면 맨 위에 고정되고 왼쪽에 검은 막대, 탭바 공지 아이콘에 점이 찍힌다
+- `id`는 체크 상태를 저장하는 이름이라 바꾸면 체크가 초기화된다. 예전 형식 `{ pin, label, text }`도 그대로 보인다
 
 기술: React + Vite + Tailwind CSS (JavaScript), 카카오맵(react-kakao-maps-sdk). 배포는 Vercel 정적 사이트.
 

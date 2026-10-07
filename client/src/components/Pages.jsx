@@ -222,7 +222,81 @@ export function ShopGrid({ places, onOpen }) {
   )
 }
 
-// 공지. 없으면 빈 화면
+// ---------- 공지 ----------
+// 형식: { id, pin, label, title, items?, text? }. 예전 형식 { pin, label, text }도 그대로 보인다 (title이 없으면 label이 제목)
+const itemText = (it) => (typeof it === 'string' ? it : it.text)
+const checkKey = (n, i) => `ck_${n.id ?? n.title ?? n.label ?? i}`
+const readChecks = (key) => {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || '[]')
+    return Array.isArray(v) ? v : []
+  } catch {
+    return []
+  }
+}
+
+// 체크 상태는 각자 핸드폰에 저장한다. 항목 글자를 저장해서 순서가 바뀌어도 맞게 남는다
+function Checklist({ items, checked, onToggle }) {
+  return (
+    <ul className="mt-3 border-t border-black">
+      {items.map((it, i) => {
+        const t = itemText(it)
+        const on = checked.includes(t)
+        return (
+          <li key={i} className="border-b border-[#e5e5e5]">
+            <button type="button" role="checkbox" aria-checked={on} onClick={() => onToggle(t)} className="flex min-h-[52px] w-full items-center gap-3 py-2.5 text-left">
+              <span className={`flex h-6 w-6 shrink-0 items-center justify-center border-2 border-black ${on ? 'bg-black' : 'bg-white'}`} aria-hidden>
+                {on && (
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" strokeWidth="3">
+                    <path d="M5 12.5l4.5 4.5L19 7.5" />
+                  </svg>
+                )}
+              </span>
+              <span className={`text-[17px] leading-snug break-keep ${on ? 'text-[#888] line-through' : ''}`}>{t}</span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function NoticeCard({ notice, index }) {
+  const key = checkKey(notice, index)
+  const items = notice.items ?? []
+  const [checked, setChecked] = useState(() => readChecks(key))
+  const toggle = (t) => {
+    const next = checked.includes(t) ? checked.filter((x) => x !== t) : [...checked, t]
+    setChecked(next)
+    try {
+      localStorage.setItem(key, JSON.stringify(next))
+    } catch {
+      // 저장 못 해도 화면에서는 체크된다
+    }
+  }
+  const done = items.filter((it) => checked.includes(itemText(it))).length
+  return (
+    <article className={`border-b border-[#e5e5e5] py-5 pr-5 ${notice.pin ? 'border-l-4 border-l-black pl-4' : 'pl-5'}`}>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-xs text-[#888]">
+          {notice.pin ? '고정 · ' : ''}
+          {notice.label}
+        </p>
+        {items.length > 0 && (
+          <p className="shrink-0 text-xs font-semibold tabular-nums">
+            {done} / {items.length} 챙김
+          </p>
+        )}
+      </div>
+      <h3 className="mt-1 text-[22px] font-bold leading-tight break-keep">{notice.title ?? notice.label}</h3>
+      {items.length > 0 && <Checklist items={items} checked={checked} onToggle={toggle} />}
+      {notice.text && <p className="mt-3 whitespace-pre-line bg-[#f5f5f5] px-3.5 py-3 text-[15px] font-semibold leading-[1.6] break-keep">{notice.text}</p>}
+    </article>
+  )
+}
+
+// 공지. 하나도 없을 때만 빈 화면
+export const hasPinnedNotice = notices.some((n) => n.pin)
 export function Notice() {
   const sorted = [...notices.filter((n) => n.pin), ...notices.filter((n) => !n.pin)]
   return (
@@ -233,14 +307,7 @@ export function Notice() {
           공지가 올라오면 여기에 보여요.
         </div>
       ) : (
-        <ul>
-          {sorted.map((n, i) => (
-            <li key={i} className={`border-b border-[#e5e5e5] py-4 pr-5 ${n.pin ? 'border-l-4 border-l-black pl-4' : 'pl-5'}`}>
-              <p className="text-[11px] text-[#888]">{n.label}</p>
-              <p className="mt-1 text-[15px] leading-[1.55] break-keep">{n.text}</p>
-            </li>
-          ))}
-        </ul>
+        sorted.map((n, i) => <NoticeCard key={checkKey(n, i)} notice={n} index={i} />)
       )}
     </Page>
   )

@@ -7,7 +7,7 @@ import KakaoMain from './components/KakaoMain.jsx'
 import TabBar from './components/TabBar.jsx'
 import CardStrip from './components/CardStrip.jsx'
 import PlaceSheet from './components/PlaceSheet.jsx'
-import { Contacts, Notice, ShopGrid, Timetable } from './components/Pages.jsx'
+import { Contacts, Notice, ShopGrid, Timetable, hasPinnedNotice } from './components/Pages.jsx'
 import Lightbox from './components/Lightbox.jsx'
 import EditMap from './components/EditMap.jsx'
 
@@ -283,7 +283,7 @@ export default function App() {
         onOpenPhoto={setLightbox}
       />
 
-      <TabBar tab={tab} onTab={chooseTab} />
+      <TabBar tab={tab} onTab={chooseTab} dot={{ notice: hasPinnedNotice }} />
 
       {toast && (
         <div role="status" className="fixed left-1/2 z-[90] -translate-x-1/2 whitespace-nowrap bg-black px-4 py-3 text-sm text-white" style={{ top: 'calc(env(safe-area-inset-top) + 70px)' }}>
