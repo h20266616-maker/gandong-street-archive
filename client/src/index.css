@@ -34,7 +34,6 @@ body {
   border: 0;
   cursor: pointer;
 }
-.pin-hit.is-dim { opacity: 0.25; }
 
 /* 상점가 핀: 흰 원 + 검은 2px 테두리 + 번호, 아래 검은 꼬리. 선택하면 반전하고 조금 크게 */
 .pin-shop {
@@ -95,9 +94,6 @@ body {
 .pin-sign.is-on { color: #fff; }
 .pin-sign.is-on::before { background: #000; }
 
-/* 3D 핀의 막대와 바닥 */
-.pin-stick { display: block; width: 2px; background: #000; }
-.pin-foot { display: block; width: 8px; height: 3px; background: #000; }
 
 /* 핀 옆 이름: 흰 외곽선 글자 */
 .pin-name {

@@ -52,7 +52,6 @@ export default function App() {
   const [tab, setTab] = useState(initialTab)
   const [selectedId, setSelectedId] = useState(linkShop)
   const [detailOpen, setDetailOpen] = useState(Boolean(linkShop))
-  const [threeD, setThreeD] = useState(false)
   const [me, setMe] = useState(null)
   const [locating, setLocating] = useState(false)
   const [toast, setToast] = useState(null)
@@ -70,7 +69,6 @@ export default function App() {
   const places = useMemo(() => toPlaces(stores, mts, signs), [stores, mts, signs])
   const shown = useMemo(() => places.filter((p) => inFilter(filter, p)), [places, filter])
   const order = useMemo(() => cardOrder(shown), [shown])
-  const shownIds = useMemo(() => new Set(shown.map((p) => p.id)), [shown])
   const pins = useMemo(() => shown.filter(hasPin), [shown]) // 좌표 없는 곳은 카드에만
   const counts = useMemo(() => Object.fromEntries(FILTERS.filter((f) => f.key !== 'all').map((f) => [f.key, places.filter((p) => inFilter(f.key, p)).length])), [places])
   const selected = places.find((p) => p.id === selectedId) ?? null
@@ -206,7 +204,7 @@ export default function App() {
     () => ({ top: frame.top, bottom: frame.bottom, left: 0, right: wide && detailOpen ? 440 : 64 }),
     [frame, wide, detailOpen],
   )
-  // 이름표가 가리면 안 되는 자리: 오른쪽 위 버튼 2개와 범례
+  // 이름표가 가리면 안 되는 자리: 오른쪽 위 내 위치 버튼과 범례
   const blocked = useMemo(
     () => [{ x1: frame.vw - 12 - 44 - 4, x2: frame.vw, y1: 0, y2: frame.top + 44 }, ...(frame.legend ? [{ x1: frame.legend.x1, x2: frame.vw, y1: 0, y2: frame.legend.y2 }] : [])],
     [frame],
@@ -272,12 +270,10 @@ export default function App() {
             appKey={KAKAO_MAP_KEY}
             places={pins}
             selectedId={selectedId}
-            activeIds={shownIds}
             insets={insets}
             blocked={blocked}
             fitKey={`${fitReq.f}:${fitReq.seq}`}
             fitSkipFocus={fitReq.skipFocus}
-            threeD={threeD}
             me={me}
             onPick={pick}
             onLoadError={() => setKakaoFailed(true)}
@@ -317,13 +313,10 @@ export default function App() {
             </div>
           </div>
 
-          {/* 오른쪽 위: 내 위치, 3D (확대·축소는 핀치) */}
+          {/* 오른쪽 위: 내 위치 (이동·확대·축소는 카카오맵 기본 제스처) */}
           <div className="fixed right-3 z-30 flex flex-col items-end" style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}>
             <button type="button" aria-pressed={locating} aria-label="내 위치" onClick={toggleLocate} className={`${tool(locating)} text-lg`}>
               ◎
-            </button>
-            <button type="button" aria-pressed={threeD} aria-label="3D 보기" onClick={() => setThreeD((v) => !v)} className={`${tool(threeD)} -mt-px`}>
-              3D
             </button>
             {/* 범례 */}
             <div ref={legendRef} className="mt-2 self-end whitespace-nowrap border border-black bg-white px-2 py-1.5 text-[11px] leading-[1.6]">
