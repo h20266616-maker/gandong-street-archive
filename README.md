@@ -10,7 +10,8 @@
 - 지도 아래 장소 카드 줄: 넘기면 그 장소로 지도가 따라가고, 핀을 누르면 카드가 따라온다. 고른 카드·핀을 한 번 더 누르면 상세
   - 순서: 상점가 02~13 → 식물의정석 → D 간동종합문화센터 → B 너래안 → A 숙소 → C 스테이 수페
 - 상세: 아래에서 올라오는 전체 화면 (넓은 화면은 오른쪽 440px). 사진 넘기기, `길찾기`(카카오맵 앱), 이전·다음, 아래로 사진 전체. 맨 위에서 아래로 끌거나 ESC로 닫는다
-- 타임테이블 `[지도]`는 지도 탭에서 그 장소를, 상점가 그리드는 그 장소 상세를 연다
+- 타임테이블: 실제 일정(참가자용 타임테이블.xlsx). `전체 · 상점가 거리 · 모자이크 · 간판` 팀을 고르면 우리 팀만의 일정이 표시되고, 고른 팀은 기억된다(`?tab=tt&team=street`도 된다). MT 당일엔 지금 일정이 반전된다
+- 타임테이블 `[지도]`는 지도 탭에서 그 장소를(숙소 일정 → A, 현장 스케치 → 02. 마을회관은 아직 지도에 없음), 상점가 그리드는 그 장소 상세를 연다
 - 링크: `?tab=tt|map|shop|notice|call`, `?shop=06`이면 지도 탭에서 그 장소 상세가 바로 열린다 (단톡방 공유용)
 - UI는 흑백, 사진은 원본 색. 누를 수 있는 것은 모두 44px 이상
 
@@ -79,7 +80,8 @@ VITE_KAKAO_MAP_KEY=카카오_JavaScript_키
 ## 내용 고치기
 
 - **사이트 이름**: `client/src/data/site.js`와 `client/index.html`(`<title>`, 미리보기 `og:` 태그). 미리보기 이미지는 `client/public/og.jpg`(1200×630)
-- **타임테이블·공지·비상연락망**: `client/src/data/timetable.js`, `notice.js`, `contacts.js`. 타임테이블 시간은 `HH:MM`으로 채우면 MT 당일 지금 일정이 반전된다
+- **타임테이블**: `client/src/data/timetable.js`는 엑셀을 그대로 옮긴 파일이다 (`{ all, street, mosaic, sign }`, 행은 `{ time, title, note, team }`, 노란 칸 = `team: true`). 엑셀이 바뀌면 이 파일을 통째로 교체한다. `[지도]` 연결은 `client/src/components/Pages.jsx`의 `PLACE_BY_TITLE`
+- **공지·비상연락망**: `client/src/data/notice.js`, `contacts.js`
 - **한 줄 기록**: `stores.js` 각 가게의 `memo`. 상세 머리에 한 줄로 나오고, 비어 있으면 숨김
 - **MT 장소 사진**: `client/public/photos/mt/`에 `A_월남파병용사만남의장_1.jpg`처럼 넣고 `mtPlaces.js`의 `photoCount`만 고친다. 0장이면 `사진 준비 중` 카드가 나온다
 - **사진 추가**: `client/public/photos/`에 `번호_slug_순번.jpg` 규칙으로 넣고 `stores.js`의 `photoCount`를 고친 뒤 `npm run thumbs` → `npm run check:photos`

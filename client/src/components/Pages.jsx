@@ -3,22 +3,6 @@ import { timetable } from '../data/timetable.js'
 import { notices } from '../data/notice.js'
 import { contacts, emergency, smsHref, telHref } from '../data/contacts.js'
 
-const WEEK = '일월화수목금토'
-const parseDate = (d) => d.split('-').map(Number)
-const dayLabel = (d) => {
-  const [y, m, dd] = parseDate(d.date)
-  return `${d.day}일차 · ${m}월 ${dd}일 (${WEEK[new Date(y, m - 1, dd).getDay()]})`
-}
-const shortDate = (d) => {
-  const [, m, dd] = parseDate(d)
-  return `${m}.${dd}`
-}
-const today = () => {
-  const n = new Date()
-  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
-}
-const toMin = (t) => (/^\d{1,2}:\d{2}$/.test(t) ? Number(t.split(':')[0]) * 60 + Number(t.split(':')[1]) : null)
-
 // 탭바 위를 채우는 페이지. 안쪽만 스크롤된다. 머리는 스크롤해도 위에 붙어 있다
 function Page({ kicker, title, children, onHeadHeight }) {
   const headRef = useRef(null)
@@ -44,52 +28,165 @@ function Page({ kicker, title, children, onHeadHeight }) {
   )
 }
 
-// 타임테이블. MT 당일에는 지금 시각에 해당하는 일정을 반전한다
+// ---------- 타임테이블 ----------
+export const TEAMS = [
+  { key: 'all', label: '전체' },
+  { key: 'street', label: '상점가 거리' },
+  { key: 'mosaic', label: '모자이크' },
+  { key: 'sign', label: '간판' },
+]
+const TEAM_KEY = 'gandong-tt-team'
+export const readTeam = () => {
+  const q = new URLSearchParams(window.location.search).get('team')
+  if (TEAMS.some((t) => t.key === q)) return q
+  try {
+    const saved = localStorage.getItem(TEAM_KEY)
+    if (TEAMS.some((t) => t.key === saved)) return saved
+  } catch {
+    // 저장소를 못 쓰는 환경이면 기본값
+  }
+  return 'all'
+}
+
+// [지도] 버튼은 장소가 확실한 일정에만. 마을회관은 아직 지도에 없어서 달지 않는다
+const PLACE_BY_TITLE = {
+  '숙소 이동': 'A',
+  '체크인·휴식': 'A',
+  기상: 'A',
+  체크아웃: 'A',
+  '현장 스케치': '02',
+}
+const placeFor = (team, title) => PLACE_BY_TITLE[title] ?? (team === 'all' && title === '활동 시작' ? '02' : null)
+
+// "Day 1 · 10/9(금)" → 2026-10-09, "10/9 (금)"
+const MT_YEAR = 2026
+const dayDate = (title) => {
+  const m = title.match(/(\d{1,2})\/(\d{1,2})\s*\(([^)]+)\)/)
+  if (!m) return null
+  return { iso: `${MT_YEAR}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`, short: `${m[1]}/${m[2]} (${m[3]})` }
+}
+const todayIso = (n) => `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`
+const startMin = (t) => {
+  const m = t.match(/^(\d{1,2}):(\d{2})/)
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null
+}
+// "10:00~10:30" → "10:00" / "~10:30" 두 줄
+const timeText = (t) => t.replace('~', '\n~')
+
 export function Timetable({ onShowPlace }) {
+  const [team, setTeamState] = useState(readTeam)
   const [now, setNow] = useState(() => new Date())
   const [headH, setHeadH] = useState(86)
+  const nowRef = useRef(null)
+  const scrolled = useRef(false)
+
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 60000)
     return () => clearInterval(t)
   }, [])
+
+  const setTeam = (key) => {
+    setTeamState(key)
+    try {
+      localStorage.setItem(TEAM_KEY, key)
+    } catch {
+      // 저장 못 해도 화면은 바뀐다
+    }
+    const q = new URLSearchParams(window.location.search)
+    if (key === 'all') q.delete('team')
+    else q.set('team', key)
+    history.replaceState(history.state, '', `${window.location.pathname}?${q}`)
+  }
+
+  const days = timetable[team] ?? timetable.all
+  const dates = days.map((d) => dayDate(d.title))
+  const range = dates[0] && dates.at(-1) ? `${dates[0].short} – ${dates.at(-1).short}` : ''
+
+  // 지금 일정: MT 당일이면 시작 시각이 지난 가장 마지막 행
+  const today = todayIso(now)
   const nowMin = now.getHours() * 60 + now.getMinutes()
-  const todayStr = today()
-  const range = `${shortDate(timetable[0].date)} – ${shortDate(timetable.at(-1).date)}`
+  let current = null
+  days.forEach((d, di) => {
+    if (dates[di]?.iso !== today) return
+    d.items.forEach((it, i) => {
+      const s = startMin(it.time)
+      if (s != null && s <= nowMin) current = `${di}:${i}`
+    })
+  })
+
+  // 처음 열 때 지금 일정으로 스크롤
+  useEffect(() => {
+    if (current && nowRef.current && !scrolled.current) {
+      scrolled.current = true
+      nowRef.current.scrollIntoView({ block: 'center' })
+    }
+  }, [current])
 
   return (
     <Page kicker={range} title="타임테이블" onHeadHeight={setHeadH}>
-      {timetable.map((d) => {
-        let current = -1
-        if (d.date === todayStr) d.items.forEach((it, i) => toMin(it.time) != null && toMin(it.time) <= nowMin && (current = i))
-        return (
-          <section key={d.date} className="pb-2">
-            <h3 className="sticky z-10 border-b border-black bg-white px-5 pb-2 pt-[18px] text-[13px] font-bold" style={{ top: headH }}>
-              {dayLabel(d)}
-            </h3>
-            <ol>
-              {d.items.map((it, i) => {
-                const on = i === current
-                return (
-                  <li key={i} className={`grid min-h-[68px] grid-cols-[58px_1fr_auto] items-center gap-3 border-b border-[#e5e5e5] px-5 py-3.5 ${on ? 'bg-black text-white' : ''}`}>
-                    <span className="text-[15px] font-bold">{it.time}</span>
-                    <span className="min-w-0">
-                      <span className="block text-[17px] font-semibold leading-snug break-keep">{it.title}</span>
-                      <span className={`mt-0.5 block truncate text-[13px] ${on ? 'text-[#ccc]' : 'text-[#888]'}`}>{it.where}</span>
+      <div className="px-5 pt-4">
+        <div role="radiogroup" aria-label="팀" className="grid grid-cols-4 border border-black">
+          {TEAMS.map((t, i) => (
+            <button
+              key={t.key}
+              type="button"
+              role="radio"
+              aria-checked={team === t.key}
+              onClick={() => setTeam(t.key)}
+              className={`h-11 min-w-0 px-1 text-[14px] font-semibold ${i ? 'border-l border-black' : ''} ${team === t.key ? 'bg-black text-white' : ''}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {team !== 'all' && (
+          <p className="mt-2.5 flex items-center gap-2 text-xs text-[#888]">
+            <span aria-hidden className="inline-block h-3.5 w-1 bg-black" />
+            표시된 칸은 우리 팀만의 일정이에요
+          </p>
+        )}
+      </div>
+
+      {days.map((d, di) => (
+        <section key={d.title} className="pb-2 pt-2">
+          <h3 className="sticky z-10 border-b border-black bg-white px-5 pb-2 pt-4 text-[13px] font-bold" style={{ top: headH }}>
+            {d.title}
+          </h3>
+          <ol>
+            {d.items.map((it, i) => {
+              const on = current === `${di}:${i}`
+              const mine = team !== 'all' && it.team
+              const place = placeFor(team, it.title)
+              return (
+                <li
+                  key={i}
+                  ref={on ? nowRef : undefined}
+                  aria-current={on ? 'time' : undefined}
+                  className={`grid min-h-[68px] grid-cols-[58px_1fr_auto] items-center gap-3 border-b border-[#e5e5e5] py-3.5 pr-5 ${
+                    mine ? 'border-l-4 border-l-black pl-4' : 'pl-5'
+                  } ${on ? 'bg-black text-white' : mine ? 'bg-[#f5f5f5]' : ''}`}
+                >
+                  <span className="whitespace-pre-line text-sm font-bold leading-tight">{timeText(it.time)}</span>
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-[17px] font-semibold leading-snug break-keep">{it.title}</span>
+                      {mine && <span className={`border px-1.5 py-px text-[11px] font-semibold leading-tight ${on ? 'border-white' : 'border-black'}`}>우리 팀</span>}
                     </span>
-                    {it.place ? (
-                      <button type="button" onClick={() => onShowPlace(it.place)} aria-label={`${it.where} 지도에서 보기`} className="flex h-11 items-center">
-                        <span className={`flex h-10 items-center border px-3 text-[13px] font-semibold ${on ? 'border-white' : 'border-black'}`}>지도</span>
-                      </button>
-                    ) : (
-                      <span />
-                    )}
-                  </li>
-                )
-              })}
-            </ol>
-          </section>
-        )
-      })}
+                    {it.note && <span className={`mt-1 block whitespace-pre-line text-sm leading-normal break-keep ${on ? 'text-[#ddd]' : 'text-[#444]'}`}>{it.note}</span>}
+                  </span>
+                  {place ? (
+                    <button type="button" onClick={() => onShowPlace(place)} aria-label={`${it.title} 장소 지도에서 보기`} className="flex h-11 items-center">
+                      <span className={`flex h-10 items-center border px-3 text-[13px] font-semibold ${on ? 'border-white' : 'border-black'}`}>지도</span>
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        </section>
+      ))}
     </Page>
   )
 }

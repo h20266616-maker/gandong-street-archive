@@ -66,6 +66,7 @@ export default function App() {
     if (isEditMode) return
     const q = new URLSearchParams(window.location.search)
     q.set('tab', tab)
+    if (tab !== 'tt') q.delete('team') // 팀은 타임테이블 탭에서만 (localStorage에도 남는다)
     if (detailOpen && selectedId) q.set('shop', selectedId)
     else q.delete('shop')
     q.delete('view')
