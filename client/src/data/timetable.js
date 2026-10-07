@@ -563,3 +563,11 @@ export const timetable = {
     }
   ]
 }
+
+// 타임테이블 위 팀 선택 버튼 (key는 위 timetable의 키, 주소의 ?team= 값)
+export const teams = [
+  { key: 'all', label: '전체' },
+  { key: 'street', label: '상점가 거리' },
+  { key: 'mosaic', label: '모자이크' },
+  { key: 'sign', label: '간판' },
+]

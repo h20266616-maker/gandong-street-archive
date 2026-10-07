@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { timetable } from '../data/timetable.js'
+import { teams, timetable } from '../data/timetable.js'
 import { notices } from '../data/notice.js'
 import { contacts, emergency, smsHref, telHref } from '../data/contacts.js'
 
@@ -29,12 +29,7 @@ function Page({ kicker, title, children, onHeadHeight }) {
 }
 
 // ---------- 타임테이블 ----------
-export const TEAMS = [
-  { key: 'all', label: '전체' },
-  { key: 'street', label: '상점가 거리' },
-  { key: 'mosaic', label: '모자이크' },
-  { key: 'sign', label: '간판' },
-]
+export const TEAMS = teams
 const TEAM_KEY = 'gandong-tt-team'
 export const readTeam = () => {
   const q = new URLSearchParams(window.location.search).get('team')
