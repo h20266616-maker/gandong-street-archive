@@ -230,11 +230,15 @@ const KakaoMain = forwardRef(function KakaoMain({ appKey, places, selectedId, ac
   // 고르면 보이는 영역 가운데로. 시트 높이가 바뀌어도 다시 맞춘다
   const selected = places.find((p) => p.id === selectedId)
   // (처음 범위 맞추기와 같은 프레임이면 바뀌기 전 화면 기준으로 계산되므로 한 박자 늦춘다)
+  // 멀리서 보고 있었으면 고른 곳 근처로 확대한다 (상점가는 골목이 보이게, MT 장소는 주변이 보이게)
   useEffect(() => {
     if (!mapReady || !selected) return undefined
+    const map = mapRef.current
+    const maxLevel = selected.kind === 'mt' ? 5 : 3
+    if (!enlargedRef.current && map.getLevel() > maxLevel) map.setLevel(maxLevel)
     const t = setTimeout(() => focusOn(selected.lat, selected.lng), 60)
     return () => clearTimeout(t)
-  }, [selectedId, mapReady, insets.bottom, insets.left]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedId, mapReady, insets.bottom, insets.top, insets.left]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // 내 위치를 처음 받으면 그리로
   const meOn = Boolean(me)

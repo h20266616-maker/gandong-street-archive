@@ -1,7 +1,7 @@
 // MT 타임테이블. 시간은 'HH:MM'으로 채운다 (모르면 '--:--').
 // - date: 'YYYY-MM-DD'. 화면의 요일은 날짜에서 계산한다
-// - place: 지도에서 찾을 장소 id ('A'~'D', '02'~'13') → 행에 [지도] 버튼이 붙고 누르면 전체 탭에서 그 장소 상세가 열린다
-//   상점가 전체를 가리킬 때는 'shop' → 상점가 리스트 탭으로 간다. 연결할 곳이 없으면 null
+// - place: 지도에서 찾을 장소 id ('A'~'D', '02'~'13') → 행에 [지도] 버튼이 붙고 누르면 지도 탭에서 그 장소가 선택된다
+//   연결할 곳이 없으면 null
 // - 그날 MT 중에는 지금 시각에 해당하는 일정이 반전된다
 export const timetable = [
   {
@@ -11,7 +11,7 @@ export const timetable = [
       { time: '--:--', title: '한림대학교 출발', where: '학교 정문', place: null },
       { time: '--:--', title: '간동 도착 · 점심', where: '장소 미정', place: null },
       { time: '--:--', title: '작업', where: '간동종합문화센터', place: 'D' },
-      { time: '--:--', title: '상점가 기록 산책', where: '간척월명로 상점가', place: 'shop' },
+      { time: '--:--', title: '상점가 기록 산책', where: '간척월명로 상점가', place: '02' },
       { time: '--:--', title: '저녁', where: '장소 미정', place: null },
       { time: '--:--', title: '숙소 체크인', where: '월남파병용사만남의장', place: 'A' },
     ],

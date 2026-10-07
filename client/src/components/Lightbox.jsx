@@ -16,8 +16,8 @@ export default function Lightbox({ title, name, photos, index, onIndexChange, on
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  // 글자는 밑줄 텍스트, 누르는 영역은 44px 이상
-  const link = 'inline-flex min-h-11 min-w-11 items-center justify-center px-2 underline underline-offset-4 hover:no-underline'
+  // 글자는 밑줄 텍스트, 누르는 영역은 48px 이상
+  const link = 'inline-flex min-h-12 min-w-12 items-center justify-center px-3 underline underline-offset-4 hover:no-underline'
 
   return (
     <div

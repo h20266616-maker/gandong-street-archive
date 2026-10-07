@@ -1,6 +1,4 @@
-// 공지. pin: true인 항목은 맨 위에 두고 왼쪽에 검은 선을 긋는다. 문구는 자리표시라 채워 넣는다
-export const notices = [
-  { pin: true, label: '공지', text: '집합 시간과 장소를 여기에 적는다. 예: 10월 9일 ○○시, 한림대학교 정문.' },
-  { pin: false, label: '준비물', text: '챙길 것을 여기에 적는다. 예: 세면도구, 여벌 옷, 충전기, 작업 도구.' },
-  { pin: false, label: '안내', text: '숙소와 귀가 안내를 여기에 적는다. 예: 숙소 이용 규칙, 둘째 날 해산 시간.' },
-]
+// 공지. 비어 있으면 공지 탭에 '아직 공지가 없어요'가 나온다.
+// 항목 형식: { pin, label, text }  — pin: true면 맨 위에 고정되고 왼쪽에 검은 선
+// 예: { pin: true, label: '공지', text: '10월 9일 9시, 한림대학교 정문 집합' }
+export const notices = []
