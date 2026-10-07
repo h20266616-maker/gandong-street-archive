@@ -17,10 +17,12 @@
 
 ### 공지 올리기
 
-`client/src/data/notice.js`의 `notices` 배열에 항목을 넣고 push하면 배포된다. 형식은 `{ id, pin, label, title, items?, text? }`.
+`client/src/data/notice.js`의 `notices` 배열에 항목을 넣고 push하면 배포된다. 형식은 `{ id, pin, label, title, rows?, items?, text? }`이고, 한 카드 안에서 rows → items → text 순서로 보인다.
 
 ```js
 export const notices = [
+  // 표형: rows는 [라벨, 값] 목록. 값이 크게 보여서 시간·장소가 한눈에 들어온다
+  { id: 'meet', pin: true, label: '집합', title: '집합 안내', rows: [['언제', '10월 9일 (금) 오전 10:20까지'], ['어디', 'CLC 희망터 앞']] },
   // 체크리스트형: items가 있으면 누를 때마다 체크된다 (각자 핸드폰에 저장, 머리에 "2 / 5 챙김")
   { id: 'prep', pin: true, label: '준비물', title: '이것만 챙겨 오세요', items: ['세면도구', '여벌 옷', '충전기'], text: '물감과 붓은 동아리에서 준비해요' },
   // 글만 있는 형: text가 회색 바탕 강조 문단으로 보인다

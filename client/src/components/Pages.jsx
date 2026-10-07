@@ -223,7 +223,8 @@ export function ShopGrid({ places, onOpen }) {
 }
 
 // ---------- 공지 ----------
-// 형식: { id, pin, label, title, items?, text? }. 예전 형식 { pin, label, text }도 그대로 보인다 (title이 없으면 label이 제목)
+// 형식: { id, pin, label, title, rows?, items?, text? }. 예전 형식 { pin, label, text }도 그대로 보인다 (title이 없으면 label이 제목)
+// 한 카드 안의 순서: rows(표) → items(체크리스트) → text(강조 문단)
 const itemText = (it) => (typeof it === 'string' ? it : it.text)
 const checkKey = (n, i) => `ck_${n.id ?? n.title ?? n.label ?? i}`
 const readChecks = (key) => {
@@ -289,6 +290,17 @@ function NoticeCard({ notice, index }) {
         )}
       </div>
       <h3 className="mt-1 text-[22px] font-bold leading-tight break-keep">{notice.title ?? notice.label}</h3>
+      {notice.rows?.length > 0 && (
+        // 언제·어디 같은 표: 값을 크게 써서 한눈에 들어오게
+        <dl className="mt-3 border-t border-black">
+          {notice.rows.map(([k, v], i) => (
+            <div key={i} className="grid min-h-[52px] grid-cols-[56px_1fr] items-center gap-2 border-b border-[#e5e5e5] py-2">
+              <dt className="text-[13px] text-[#888]">{k}</dt>
+              <dd className="text-[19px] font-bold leading-snug break-keep">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {items.length > 0 && <Checklist items={items} checked={checked} onToggle={toggle} />}
       {notice.text && <p className="mt-3 whitespace-pre-line bg-[#f5f5f5] px-3.5 py-3 text-[15px] font-semibold leading-[1.6] break-keep">{notice.text}</p>}
     </article>
