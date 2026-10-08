@@ -250,10 +250,11 @@ function NoticeCard({ notice }) {
       <h3 className="mt-1 text-[22px] font-bold leading-tight break-keep">{notice.title ?? notice.label}</h3>
       {notice.rows?.length > 0 && (
         // 언제·어디 같은 표: 값을 크게 써서 한눈에 들어오게
-        <dl className="mt-3 border-t border-black">
+        // 라벨 칸 너비는 표마다 가장 긴 라벨에 맞춘다 (최소 56px, 최대 120px에서 줄바꿈). 줄마다 같은 칸이 되게 subgrid
+        <dl className="mt-3 grid grid-cols-[minmax(56px,max-content)_1fr] gap-x-2 border-t border-black">
           {notice.rows.map(([k, v], i) => (
-            <div key={i} className="grid min-h-[52px] grid-cols-[56px_1fr] items-center gap-2 border-b border-[#e5e5e5] py-2">
-              <dt className="text-[13px] text-[#888]">{k}</dt>
+            <div key={i} className="col-span-2 grid min-h-[52px] grid-cols-subgrid items-center border-b border-[#e5e5e5] py-2">
+              <dt className="max-w-[120px] text-[13px] text-[#888] break-keep">{k}</dt>
               <dd className="text-[19px] font-bold leading-snug break-keep">{v}</dd>
             </div>
           ))}
