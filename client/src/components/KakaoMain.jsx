@@ -67,10 +67,10 @@ function useNativeClick(onClick) {
 const PinHead = ({ place, on }) =>
   place.kind === 'sign' ? (
     <span className={`pin-sign ${on ? 'is-on' : ''}`}>
-      <span>{place.id}</span>
+      <span>{place.no}</span>
     </span>
   ) : (
-    <span className={`pin-mt ${on ? 'is-on' : ''}`}>{place.id}</span>
+    <span className={`pin-mt ${on ? 'is-on' : ''}`}>{place.no}</span>
   )
 
 // 핀. 보이는 크기보다 사방 8px 넓은 터치 영역.
@@ -88,7 +88,7 @@ function FlatPin({ place, on, side = 'right', onPick }) {
       ) : (
         <span className="flex flex-col items-center">
           <span className="relative block">
-            <span className={`pin-shop ${on ? 'is-on' : ''}`}>{place.id}</span>
+            <span className={`pin-shop ${on ? 'is-on' : ''}`}>{place.no}</span>
             {on && <span className={`pin-name pin-name-side side-${side}`}>{place.name}</span>}
           </span>
           <span className="pin-tail" />
@@ -168,12 +168,12 @@ export default function KakaoMain({ appKey, places, selectedId, insets, blocked 
   }, [])
 
   // 처음 화면과 필터 전환: 보이는 핀이 다 들어오게 (places는 이미 필터되고 좌표 있는 곳만)
-  // 별관(식물의정석)은 3km 떨어져 있어서 범위에서 뺀다. 간판 필터에서는 간판 장소라서 넣는다
+  // 식물의정석(annex)은 3km 떨어져 있어서 전체 범위에서 뺀다. 간판 필터에서는 넣는다
   // 필터를 눌러 맨 앞 카드가 골라졌을 때는 그 카드로 지도를 옮기지 않는다 (범위가 우선)
   const fitSelected = useRef(null)
   useEffect(() => {
     if (!mapReady) return
-    fitPlaces(fitKey?.startsWith('sign:') ? places : places.filter((p) => p.kind !== 'annex'))
+    fitPlaces(fitKey?.startsWith('sign:') ? places : places.filter((p) => !p.annex))
     fitSelected.current = fitSkipFocus ? selectedId : null
   }, [fitKey, mapReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -215,7 +215,7 @@ export default function KakaoMain({ appKey, places, selectedId, insets, blocked 
     const area = { x1: insets.left + 4, y1: insets.top, x2: el.clientWidth - 4, y2: el.clientHeight - insets.bottom }
     // 상점가 핀(꼬리 8px 위에 지름 28, 고르면 34)과 고른 상점가 핀의 이름표도 피한다
     const shopRects = places
-      .filter((p) => p.kind === 'shop' || p.kind === 'annex')
+      .filter((p) => p.kind === 'shop')
       .flatMap((p) => {
         const pt = proj.containerPointFromCoords(new kakao.maps.LatLng(p.lat, p.lng))
         const r = p.id === selectedId ? 17 : 14

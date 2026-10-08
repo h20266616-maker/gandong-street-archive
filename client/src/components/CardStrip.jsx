@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useRef } from 'react'
+import { staffLine } from '../data/places.js'
 
 // 지도 아래 장소 카드 줄. 가로로 넘기면 맨 앞에 온 카드가 선택되고(지도가 따라감),
 // 선택이 바뀌면(핀을 누르는 등) 그 카드로 스크롤한다. 선택된 카드를 한 번 더 누르면 상세
@@ -51,18 +52,19 @@ const CardStrip = forwardRef(function CardStrip({ places, selectedId, onSelect, 
               type="button"
               onClick={() => (on ? onOpen(p.id) : onSelect(p.id))}
               aria-pressed={on}
-              className="grid h-[104px] w-[calc(100%-40px)] max-w-[380px] shrink-0 snap-start grid-cols-[104px_1fr] border border-black bg-white text-left desk:w-[340px]"
+              className="grid h-[116px] w-[calc(100%-40px)] max-w-[380px] shrink-0 snap-start grid-cols-[116px_1fr] border border-black bg-white text-left desk:w-[340px]"
               style={on ? { outline: '2px solid #000', outlineOffset: -3 } : undefined}
             >
               {p.thumb ? (
-                <img src={p.thumb} alt="" loading="lazy" width="102" height="102" className="block h-[102px] w-[102px] object-cover" />
+                <img src={p.thumb} alt="" loading="lazy" width="114" height="114" className="block h-[114px] w-[114px] object-cover" />
               ) : (
-                <span className="flex h-[102px] w-[102px] items-center justify-center bg-[#f5f5f5] text-[11px] text-[#888]">사진 준비 중</span>
+                <span className="flex h-[114px] w-[114px] items-center justify-center bg-[#f5f5f5] text-[11px] text-[#888]">사진 준비 중</span>
               )}
               <span className="flex min-w-0 flex-col px-3 py-2.5">
                 <span className="text-[11px] text-[#888]">{p.label}</span>
                 <span className="truncate text-lg font-bold leading-snug">{p.name}</span>
                 <span className="truncate text-xs text-[#555]">{p.subNoPhotos}</span>
+                {staffLine(p) && <span className="truncate text-xs text-[#888]">{staffLine(p)}</span>}
                 <span className="mt-auto text-[13px] font-bold">{n ? `사진 ${n}장 보기 →` : '자세히 보기 →'}</span>
               </span>
             </button>

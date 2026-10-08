@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { directionsUrl } from '../data/places.js'
+import { directionsUrl, staffLine } from '../data/places.js'
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -104,6 +104,7 @@ export default function PlaceSheet({ place, index, total, prev, next, open, onCl
         <p className="text-[13px] text-[#888]">{place.label}</p>
         <h2 className="text-[30px] font-bold leading-tight break-keep">{place.name}</h2>
         <p className="mt-1 text-[15px] text-[#333]">{place.subNoPhotos}</p>
+        {staffLine(place) && <p className="text-[13px] text-[#888]">{staffLine(place)}</p>}
         {place.distanceNote && <p className="text-[15px] text-[#333]">{place.distanceNote}</p>}
         {place.memo && <p className="mt-2 text-[15px] leading-relaxed break-keep">{place.memo}</p>}
       </div>

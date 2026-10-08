@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { teams, timetable } from '../data/timetable.js'
 import { notices } from '../data/notice.js'
 import { contacts, emergency, smsHref, telHref } from '../data/contacts.js'
+import { staffLine } from '../data/places.js'
 
 // 탭바 위를 채우는 페이지. 안쪽만 스크롤된다. 머리는 스크롤해도 위에 붙어 있다
 function Page({ kicker, title, children, onHeadHeight }) {
@@ -188,8 +189,8 @@ export function Timetable({ onShowPlace }) {
 
 // 상점가: 2열 사진 그리드 (넓은 화면 3열). 누르면 지도 탭에서 그 장소 상세
 export function ShopGrid({ places, onOpen }) {
-  const shops = places.filter((p) => p.kind === 'shop')
-  const annex = places.filter((p) => p.kind === 'annex')
+  const shops = places.filter((p) => p.kind === 'shop' && !p.annex)
+  const annex = places.filter((p) => p.kind === 'shop' && p.annex)
   const card = (p) => (
     <button key={p.id} type="button" onClick={() => onOpen(p.id)} className="min-w-0 text-left">
       {p.thumb ? (
@@ -198,9 +199,10 @@ export function ShopGrid({ places, onOpen }) {
         <span className="flex aspect-square w-full items-center justify-center border border-[#ddd] bg-[#f5f5f5] text-xs text-[#888]">사진 준비 중</span>
       )}
       <span className="mt-[7px] block text-[11px] text-[#888]">
-        {p.id} · 사진 {p.photos.length}
+        {p.no} · 사진 {p.photos.length}
       </span>
       <span className="block text-base font-bold leading-tight break-keep">{p.name}</span>
+      {staffLine(p) && <span className="block truncate text-xs text-[#888]">{staffLine(p)}</span>}
       <span className="block truncate text-xs text-[#888]">{p.short}</span>
     </button>
   )
