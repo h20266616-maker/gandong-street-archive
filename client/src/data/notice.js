@@ -1,10 +1,11 @@
 // 공지. 하나도 없으면 공지 탭에 '아직 공지가 없어요'가 나온다.
-// 형식: { id, pin, label, title, rows?, items?, text? }  (카드 안 순서: rows → items → text)
+// 형식: { id, pin, label, title, intro?, rows?, items?, text? }  (카드 안 순서: intro → rows → items → text)
 // - id: 공지를 구별하는 이름 (공지끼리 겹치지 않게)
 // - pin: true면 맨 위에 고정되고 왼쪽에 검은 막대, 탭바 공지 아이콘에 점이 찍힌다
 // - rows: [['언제', '…'], ['어디', '…']] 처럼 [라벨, 값] 표. 값이 크게 보인다
 // - items: 검은 네모 글머리표 목록으로 보인다 (글자 배열)
-// - text: 회색 바탕 강조 문단
+// - intro: 제목 바로 아래 안내 문장 (표·목록 앞에 오는 인사말)
+// - text: 맨 아래 회색 바탕 강조 문단
 // 예전 형식 { pin, label, text }도 그대로 보인다 (title이 없으면 label이 제목)
 export const notices = [
   {
@@ -49,7 +50,7 @@ export const notices = [
     pin: false,
     label: '담당',
     title: '가게별 담당자 안내',
-    text: '이번 MT에서 각자 맡을 가게를 안내드려요 🎨',
+    intro: '이번 MT에서 각자 맡을 가게를 안내드려요 🎨',
     rows: [
       ['꽃돼지국밥', '이신우'],
       ['오매가매 · 무래이', '엄예준'],

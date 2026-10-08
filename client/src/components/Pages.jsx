@@ -220,8 +220,8 @@ export function ShopGrid({ places, onOpen }) {
 }
 
 // ---------- 공지 ----------
-// 형식: { id, pin, label, title, rows?, items?, text? }. 예전 형식 { pin, label, text }도 그대로 보인다 (title이 없으면 label이 제목)
-// 한 카드 안의 순서: rows(표) → items(목록) → text(강조 문단)
+// 형식: { id, pin, label, title, intro?, rows?, items?, text? }. 예전 형식 { pin, label, text }도 그대로 보인다 (title이 없으면 label이 제목)
+// 한 카드 안의 순서: intro(제목 아래 안내 문장) → rows(표) → items(목록) → text(강조 문단)
 const itemText = (it) => (typeof it === 'string' ? it : it.text)
 const noticeKey = (n, i) => n.id ?? n.title ?? n.label ?? i
 
@@ -248,6 +248,7 @@ function NoticeCard({ notice }) {
         {notice.label}
       </p>
       <h3 className="mt-1 text-[22px] font-bold leading-tight break-keep">{notice.title ?? notice.label}</h3>
+      {notice.intro && <p className="mt-1.5 whitespace-pre-line text-[15px] leading-[1.6] text-[#333] break-keep">{notice.intro}</p>}
       {notice.rows?.length > 0 && (
         // 언제·어디 같은 표: 값을 크게 써서 한눈에 들어오게
         // 라벨 칸 너비는 표마다 가장 긴 라벨에 맞춘다 (최소 56px, 최대 120px에서 줄바꿈). 줄마다 같은 칸이 되게 subgrid

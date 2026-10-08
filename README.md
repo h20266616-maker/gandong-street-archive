@@ -21,7 +21,7 @@
 
 ### 공지 올리기
 
-`client/src/data/notice.js`의 `notices` 배열에 항목을 넣고 push하면 배포된다. 형식은 `{ id, pin, label, title, rows?, items?, text? }`이고, 한 카드 안에서 rows → items → text 순서로 보인다.
+`client/src/data/notice.js`의 `notices` 배열에 항목을 넣고 push하면 배포된다. 형식은 `{ id, pin, label, title, intro?, rows?, items?, text? }`이고, 한 카드 안에서 intro(제목 아래 안내 문장) → rows → items → text(맨 아래 회색 강조 문단) 순서로 보인다.
 
 ```js
 export const notices = [
